@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/container-interface/docker"
+	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/engine-interface/docker"
 	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/yaml"
 	"os"
 

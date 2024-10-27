@@ -7,7 +7,6 @@ import (
 )
 
 type ContainerTable struct {
-	container
 }
 
 type Database struct {

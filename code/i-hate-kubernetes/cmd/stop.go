@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/container-interface/docker"
+	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/client"
 	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/yaml"
 	"os"
 
@@ -43,8 +43,7 @@ func runStop(cmd *cobra.Command, args []string) {
 	fmt.Printf("%v\n", project.Project)
 	fmt.Printf("%v\n", project)
 
-	docker.ListAllContainers()
-	docker.StopProjectContainers(&project)
-	fmt.Printf("\n")
-	docker.ListAllContainers()
+	c := client.CreateClient()
+	c.StopProject(project)
+	c.PrettyPrint()
 }
