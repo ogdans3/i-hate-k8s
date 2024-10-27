@@ -3,14 +3,15 @@ package models
 import external_models "github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/external-models"
 
 type Project struct {
-	Project      string
-	Engine       string
-	Logging      bool
-	Dashboard    bool
-	Analytics    bool
-	Loadbalancer bool
-	Settings     Settings
-	Services     map[string]Service `yaml:",inline"`
+	Project      string             //An identifier for this project used for grouping pods
+	Engine       string             //Which container engine to use, e.g. docker, podman, etc
+	Logging      bool               //Enable logging
+	Registry     bool               //Deploy an internal registry, can be reachable from the outside in order to not being forced to use docker image registry
+	Dashboard    bool               //Enable dashboard
+	Analytics    bool               //Enable analytics
+	Loadbalancer *LoadBalancer      //Which loadbalancer to use
+	Settings     Settings           //Settings?
+	Services     map[string]Service `yaml:",inline"` //A list of the services to deploy
 }
 
 func ParseProject(project external_models.Project) Project {
@@ -18,9 +19,10 @@ func ParseProject(project external_models.Project) Project {
 		Project:      project.Project,
 		Engine:       project.Engine,
 		Logging:      project.Logging,
+		Registry:     project.Registry,
 		Dashboard:    project.Dashboard,
 		Analytics:    project.Analytics,
-		Loadbalancer: project.Loadbalancer,
+		Loadbalancer: ParseLoadBalancer(project.Loadbalancer),
 		Settings:     ParseSettings(project.Settings),
 		Services:     ParseServices(project.Services),
 	}

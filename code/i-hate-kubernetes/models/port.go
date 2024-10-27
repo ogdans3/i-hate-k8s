@@ -5,9 +5,9 @@ import (
 )
 
 type Port struct {
-	HostPort      string
-	ContainerPort string
-	Protocol      string
+	HostPort      string //The port on the host server
+	ContainerPort string //The port on the container
+	Protocol      string //The protocol for this port mapping (tcp, udp, etc)
 }
 
 func ParsePort(strPort string) Port {

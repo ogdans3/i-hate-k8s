@@ -1,0 +1,29 @@
+project: hello-world
+engine: docker
+
+logging: false
+analytics: false
+dashboard: true
+loadbalancer: true
+registry: true
+
+webserver:
+    image: strm/helloworld-http
+    www: true
+    https: true
+    ports:
+        - "80:80"
+    autoscale:
+        initial: 1
+        autoscale: true
+
+database:
+    image: strm/helloworld-http
+    www: true
+    https: true
+    ports:
+        - "80:80"
+    autoscale:
+        initial: 1
+        autoscale: true
+

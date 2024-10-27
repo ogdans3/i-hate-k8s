@@ -5,17 +5,17 @@ import (
 )
 
 type Service struct {
-	Image         string
-	Build         string
-	Dev           string
-	Watch         string
-	ContainerName string
-	FullName      string
+	Image         string //The docker image to use
+	Build         string //A build command which will be used during development
+	Dev           string //A dev command?
+	Watch         string //No idea?
+	ContainerName string //The name for this container, will appear in docker ps
+	FullName      string //The name for this container, will appear in docker ps
 
-	Www       bool
-	Https     bool
-	Ports     []Port
-	Autoscale Autoscale
+	Www       bool      //Should requests be redirected from example.com to www.example.com
+	Https     bool      //Should https be used
+	Ports     []Port    //A list of port mappings
+	Autoscale Autoscale //Autoscaling settings for this pod
 }
 
 func ParseService(service external_models.Service) Service {
