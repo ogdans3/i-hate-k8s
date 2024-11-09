@@ -1,4 +1,5 @@
 const std = @import("std");
+const deps = @import("./deps.zig");
 
 // Although this function looks imperative, note that its job is to
 // declaratively construct a build graph that will be executed by an external
@@ -35,15 +36,12 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+    deps.addAllTo(exe);
 
     // This declares intent for the executable to be installed into the
     // standard location when the user invokes the "install" step (the default
     // step when running `zig build`).
     b.installArtifact(exe);
-
-    //PACAKGES: Worst package manager i have ever seen
-    exe.addPackagePath("zig-yaml", "lib/zig-yaml/src/main.zig");
-    exe.addPackagePath("zig-cli", "lib/zig-cli/src/main.zig");
 
     // This *creates* a Run step in the build graph, to be executed when another
     // step is evaluated that depends on it. The next line below will establish

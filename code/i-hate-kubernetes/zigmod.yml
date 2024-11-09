@@ -1,0 +1,8 @@
+id: 7n7ddf1kfaojt8r5yc0e8ladhwq0s2h98xt3d04j2secey5s
+name: i-hate-kubernetes
+license: MIT
+description: i hate kubernetes
+root_dependencies:
+dependencies:
+  - src: https://github.com/kubkon/zig-yaml.git
+  - src: https://github.com/sam701/zig-cli.git
