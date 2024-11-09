@@ -1,10 +1,11 @@
 {
   "tasks": {
-    "dev": "deno run --watch client/client.ts"
+    "dev": "deno run --allow-read --watch client/index.ts"
   },
   "imports": {
     "@commander-js/extra-typings": "npm:@commander-js/extra-typings@^12.1.0",
     "@std/assert": "jsr:@std/assert@1",
+    "@std/yaml": "jsr:@std/yaml@^1.0.5",
     "commander": "npm:commander@^12.1.0"
   }
 }

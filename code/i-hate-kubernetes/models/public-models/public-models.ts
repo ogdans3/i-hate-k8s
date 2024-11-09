@@ -1,6 +1,6 @@
-interface Project {
+export interface PublicProject {
     project: string;
-    engine: ContainerEngine;
+    engine: PublicContainerEngine;
 
     logging: boolean;
     analytics: boolean;
@@ -8,29 +8,29 @@ interface Project {
     registry: boolean;
     loadbalancer: boolean;
 
-    services: Service[];
+    services: PublicService[];
 }
 
-enum ContainerEngine {
+export enum PublicContainerEngine {
     docker,
 }
 
-interface Service {
+export interface PublicService {
     name: string;
     image: string;
     www: boolean;
     https: boolean;
-    ports: (string | Port)[];
-    autoscale: boolean | Autoscale;
+    ports: (string | PublicPort)[];
+    autoscale: boolean | PublicAutoscale;
 }
 
-interface Port {
+export interface PublicPort {
     protocol: string;
     hostPort: string;
     containerPort: string;
 }
 
-interface Autoscale {
+export interface PublicAutoscale {
     initial: number;
     autoscale: boolean;
 }

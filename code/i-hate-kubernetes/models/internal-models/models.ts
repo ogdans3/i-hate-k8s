@@ -1,4 +1,5 @@
-interface Project {
+import { PublicAutoscale, PublicContainerEngine, PublicPort, PublicProject, PublicService } from "../public-models/public-models.ts";
+export interface Project {
     project: string;
     engine: ContainerEngine;
 
@@ -11,26 +12,65 @@ interface Project {
     services: Service[];
 }
 
-enum ContainerEngine {
+export enum ContainerEngine {
     docker,
 }
 
-interface Service {
+export interface Service {
     name: string;
     image: string;
     www: boolean;
     https: boolean;
-    ports: (string | Port)[];
-    autoscale: boolean | Autoscale;
+    ports: Port[];
+    autoscale: Autoscale;
 }
 
-interface Port {
+export interface Port {
     protocol: string;
     hostPort: string;
     containerPort: string;
 }
 
-interface Autoscale {
+export interface Autoscale {
     initial: number;
     autoscale: boolean;
+}
+
+export function convertPublicModelToInternalModel(publicProject: PublicProject) {
+    const project: Project = {
+        project: publicProject.project,
+        engine: convertEngine(publicProject.engine),
+
+        logging: publicProject.logging,
+        analytics: publicProject.analytics,
+        dashboard: publicProject.dashboard,
+        registry: publicProject.registry,
+        loadbalancer: convertLoadbalancer(publicProject.loadbalancer),
+
+        services: publicProject.services.map(convertService),
+    };
+    return project;
+}
+
+function convertEngine(_engine: PublicContainerEngine) {
+    return _engine as unknown as ContainerEngine;
+}
+function convertLoadbalancer(_loadbalancer: boolean) {
+    return _loadbalancer as boolean;
+}
+function convertPort(_port: PublicPort) {
+    return _port as Port;
+}
+function convertService(_service: PublicService) {
+    return <Service>{
+        name: _service.name,
+        image: _service.image,
+        www: _service.www,
+        https: _service.https,
+        ports: _service.ports.map(convertPort),
+        autoscale: convertAutoscale(_service.autoscale),
+    }
+}
+function convertAutoscale(_autoscale: PublicAutoscale) {
+    return _autoscale as Autoscale;
 }
