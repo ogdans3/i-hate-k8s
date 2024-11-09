@@ -1,0 +1,38 @@
+{
+  "version": "4",
+  "specifiers": {
+    "jsr:@std/assert@1": "1.0.7",
+    "jsr:@std/internal@^1.0.5": "1.0.5",
+    "npm:@commander-js/extra-typings@^12.1.0": "12.1.0_commander@12.1.0",
+    "npm:commander@^12.1.0": "12.1.0"
+  },
+  "jsr": {
+    "@std/assert@1.0.7": {
+      "integrity": "64ce9fac879e0b9f3042a89b3c3f8ccfc9c984391af19e2087513a79d73e28c3",
+      "dependencies": [
+        "jsr:@std/internal"
+      ]
+    },
+    "@std/internal@1.0.5": {
+      "integrity": "54a546004f769c1ac9e025abd15a76b6671ddc9687e2313b67376125650dc7ba"
+    }
+  },
+  "npm": {
+    "@commander-js/extra-typings@12.1.0_commander@12.1.0": {
+      "integrity": "sha512-wf/lwQvWAA0goIghcb91dQYpkLBcyhOhQNqG/VgWhnKzgt+UOMvra7EX/2fv70arm5RW+PUHoQHHDa6/p77Eqg==",
+      "dependencies": [
+        "commander"
+      ]
+    },
+    "commander@12.1.0": {
+      "integrity": "sha512-Vw8qHK3bZM9y/P10u3Vib8o/DdkvA2OtPtZvD871QKjy74Wj1WSKFILMPRPSdUSx5RFK1arlJzEtA4PkFgnbuA=="
+    }
+  },
+  "workspace": {
+    "dependencies": [
+      "jsr:@std/assert@1",
+      "npm:@commander-js/extra-typings@^12.1.0",
+      "npm:commander@^12.1.0"
+    ]
+  }
+}
