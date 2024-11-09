@@ -1,11 +1,12 @@
 package e2e_test
 
 import (
-	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/client"
-	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/engine-interface/docker"
-	external_models "github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/external-models"
-	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/models"
 	"testing"
+
+	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/client"
+	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/client/engine-interface/docker"
+	external_models "github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/models/external-models"
+	models "github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/models/internal-models"
 )
 
 func TestEmptyEnvironment(t *testing.T) {

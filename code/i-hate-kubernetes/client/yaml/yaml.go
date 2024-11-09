@@ -1,11 +1,12 @@
 package yaml
 
 import (
-	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/external-models"
-	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/models"
-	"gopkg.in/yaml.v3"
 	"log"
 	"os"
+
+	external_models "github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/models/external-models"
+	models "github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/models/internal-models"
+	"gopkg.in/yaml.v3"
 )
 
 func ReadFile(file string) models.Project {

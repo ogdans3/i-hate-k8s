@@ -1,8 +1,8 @@
 package external_models
 
 import (
-	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/definitions"
-	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/util"
+	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/models/definitions"
+	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/models/util"
 )
 
 type Service struct {

@@ -2,10 +2,10 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/client"
-	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/engine-interface/docker"
-	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/yaml"
 	"os"
+
+	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/client"
+	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/client/yaml"
 
 	"github.com/spf13/cobra"
 )
@@ -40,16 +40,12 @@ func init() {
 
 func runDeploy(cmd *cobra.Command, args []string) {
 	pwd, _ := os.Getwd()
-	project := yaml.ReadFile(pwd + "/examples/hello-world.yml")
+	project := yaml.ReadFile(pwd + "/../examples/hello-world.yml")
 
 	fmt.Printf("%v\n", project.Project)
 	fmt.Printf("%v\n", project)
 
-	client.CreateClient()
-	if project.Loadbalancer != nil {
-		docker.CreateContainerFromService(project.Loadbalancer.Service)
-	}
-	for _, service := range project.Services {
-		docker.CreateContainerFromService(service)
-	}
+	c := client.CreateClient()
+	c.AddProject(project)
+	c.Loop()
 }

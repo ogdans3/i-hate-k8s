@@ -3,15 +3,16 @@ package docker
 import (
 	"context"
 	"fmt"
+	"io"
+	"log"
+	"os"
+
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
-	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/models"
-	"io"
-	"log"
-	"os"
+	models "github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/models/internal-models"
 )
 
 func ListAllContainers() []types.Container {

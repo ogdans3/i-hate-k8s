@@ -5,6 +5,8 @@ import (
 )
 
 type Port struct {
+	//TODO: Should we allow the user to specify a host port? Does that even make sense for this type of application?
+	// Shouldnt we always decide the host port, in order to avoid collisions between projects
 	HostPort      string //The port on the host server
 	ContainerPort string //The port on the container
 	Protocol      string //The protocol for this port mapping (tcp, udp, etc)

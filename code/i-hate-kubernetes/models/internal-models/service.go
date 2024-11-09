@@ -1,7 +1,7 @@
 package models
 
 import (
-	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/external-models"
+	external_models "github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/models/external-models"
 )
 
 type Service struct {

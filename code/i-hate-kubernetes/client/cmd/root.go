@@ -1,9 +1,9 @@
 package cmd
 
 import (
-	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/definitions"
 	"os"
 
+	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/models/definitions"
 	"github.com/spf13/cobra"
 )
 

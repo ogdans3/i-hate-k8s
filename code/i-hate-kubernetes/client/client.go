@@ -2,9 +2,11 @@ package client
 
 import (
 	"fmt"
-	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/engine-interface/docker"
-	engine_models "github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/engine-interface/engine-models"
-	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/models"
+	"time"
+
+	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/client/engine-interface/docker"
+	engine_models "github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/client/engine-interface/engine-models"
+	models "github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/models/internal-models"
 )
 
 type Client struct {
@@ -17,6 +19,14 @@ func CreateClient() Client {
 	}
 	client.Update()
 	return client
+}
+
+func (client *Client) Loop() {
+	for {
+		fmt.Printf("Loop")
+		client.Update()
+		time.Sleep(1 * time.Second)
+	}
 }
 
 func (client *Client) Update() {
@@ -36,6 +46,17 @@ func (client *Client) Update() {
 			State:   ctr.State,
 		})
 	}
+}
+
+func (client *Client) AddProject(project models.Project) {
+	/*
+		if project.Loadbalancer != nil {
+			docker.CreateContainerFromService(project.Loadbalancer.Service)
+		}
+		for _, service := range project.Services {
+			docker.CreateContainerFromService(service)
+		}
+	*/
 }
 
 func (client *Client) GetContainers() []engine_models.Container {
