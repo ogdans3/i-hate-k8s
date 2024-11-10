@@ -1,28 +1,34 @@
 package models
 
+import external_models "github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/models/external-models"
+
+type EngineType uint8
+
 const (
-	nginx   = iota
-	haproxy = iota
+	nginx EngineType = iota
+	haproxy
 )
 
 type LoadBalancer struct {
-	Type    int     //Which underlying load balancer to use, e.g: nginx, haproxy //TODO: Find a better name
-	Service Service //The service instance of the load balancer
+	Type    EngineType //Which underlying load balancer to use, e.g: nginx, haproxy //TODO: Find a better name
+	Service *Service   //The service instance of the load balancer
 }
 
-func ParseLoadBalancer(loadbalancer bool) *LoadBalancer {
+func ParseLoadBalancer(loadbalancer bool, projectId string) *LoadBalancer {
 	//TODO: Fix hardcoding
 	return &LoadBalancer{
 		Type: nginx,
-		Service: Service{
-			Image:     "nginx:1.27.2-alpine",
-			Autoscale: Autoscale{Initial: 1, Autoscale: false},
-			Ports: []Port{
-				{HostPort: "80", ContainerPort: "80"},
-				{HostPort: "443", ContainerPort: "443"},
+		Service: ParseService(&external_models.Service{
+			ServiceName:   "loadbalancer",
+			Image:         "nginx:1.27.2-alpine",
+			Autoscale:     external_models.Autoscale{Initial: 1, Autoscale: false},
+			ContainerName: "LB",
+			Ports: []string{
+				"80:80",
+				"443:443",
 			},
 			Https: true,
 			Www:   true,
-		},
+		}, projectId),
 	}
 }

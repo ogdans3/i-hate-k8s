@@ -12,7 +12,9 @@ import (
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
+	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/console"
 	models "github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/models/internal-models"
+	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/models/util"
 )
 
 func ListAllContainers() []types.Container {
@@ -74,7 +76,7 @@ func StopAllContainers() {
 	}
 }
 
-func CreateContainerFromService(service models.Service) {
+func CreateContainerFromService(service models.Service) string {
 	ctx := context.Background()
 
 	apiClient, err := client.NewClientWithOpts(client.FromEnv)
@@ -99,16 +101,30 @@ func CreateContainerFromService(service models.Service) {
 	},
 		&container.HostConfig{
 			PortBindings: portToPortBinding(service.Ports),
-		}, nil, nil, "")
+		}, nil, nil, service.Id+"-"+service.ContainerName+"-"+util.RandStringBytesMaskImpr(5))
+
 	if err != nil {
 		panic(err)
 	}
 
-	if err := apiClient.ContainerStart(ctx, createdContainer.ID, container.StartOptions{}); err != nil {
+	StartContainer(createdContainer.ID)
+
+	console.Log(createdContainer)
+	return createdContainer.ID
+}
+
+func StartContainer(containerId string) {
+	ctx := context.Background()
+
+	apiClient, err := client.NewClientWithOpts(client.FromEnv)
+	if err != nil {
 		panic(err)
 	}
+	defer apiClient.Close()
 
-	fmt.Printf("%v\n", createdContainer)
+	if err := apiClient.ContainerStart(ctx, containerId, container.StartOptions{}); err != nil {
+		panic(err)
+	}
 }
 
 func portToPortBinding(ports []models.Port) map[nat.Port][]nat.PortBinding {

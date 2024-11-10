@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/console"
 	external_models "github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/models/external-models"
 	models "github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/models/internal-models"
 	"gopkg.in/yaml.v3"
@@ -22,7 +23,9 @@ func ReadFile(file string) models.Project {
 		// TODO: Handle the error properly, inspect the yaml file and give proper errors
 		log.Fatalf("error: %v", err2)
 	}
+	console.Log("Before insert project: ", project)
 	project.InsertDefaults()
+	console.Log("After insert project: ", project)
 	parsedProject := models.ParseProject(project)
 
 	//TODO: Validate the file, check that the project is there, etc.

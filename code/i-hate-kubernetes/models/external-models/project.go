@@ -9,11 +9,11 @@ type Project struct {
 	Analytics    bool
 	Loadbalancer bool
 	Settings     Settings
-	Services     map[string]Service `yaml:",inline"`
+	Services     map[string]*Service `yaml:",inline"`
 }
 
 func (project *Project) InsertDefaults() {
-	for _, service := range project.Services {
-		service.InsertDefaults()
+	for serviceName, service := range project.Services {
+		service.InsertDefaults(serviceName)
 	}
 }

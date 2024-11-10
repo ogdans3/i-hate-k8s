@@ -12,17 +12,17 @@ webserver:
     www: true
     https: true
     ports:
-        - "80:80"
+        - "8080:80"
     autoscale:
         initial: 1
         autoscale: true
 
-database:
+webserver2:
     image: strm/helloworld-http
     www: true
     https: true
     ports:
-        - "80:80"
+        - "8081:80"
     autoscale:
         initial: 1
         autoscale: true

@@ -6,12 +6,12 @@ analytics: false
 dashboard: true
 loadbalancer: true
 
-hello-world:
+webserver:
     image: strm/helloworld-http
     www: true
     https: true
     ports:
-        - "80:80"
+        - "8081:80"
     autoscale:
         initial: 1
         autoscale: true
