@@ -2,8 +2,9 @@ package database
 
 import (
 	"encoding/json"
-	"log"
 	"os"
+
+	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/console"
 )
 
 type ContainerTable struct {
@@ -23,21 +24,21 @@ func getFile() string {
 func read() {
 	data, err := os.ReadFile(getFile())
 	if err != nil {
-		log.Fatal("Cannot find database file")
+		console.Fatal("Cannot find database file")
 	}
 	err = json.Unmarshal(data, &database)
 	if err != nil {
-		log.Fatal("Malformed database file")
+		console.Fatal("Malformed database file")
 	}
 }
 
 func write() {
 	str, err := json.Marshal(&database)
 	if err != nil {
-		log.Fatal("Unable to marshal the database")
+		console.Fatal("Unable to marshal the database")
 	}
 	err = os.WriteFile(getFile(), str, 0644)
 	if err != nil {
-		log.Fatal("Unable to store the database")
+		console.Fatal("Unable to store the database")
 	}
 }

@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/client/engine-interface/docker"
@@ -39,9 +38,6 @@ func init() {
 func runCreateDockerFileCmd(cmd *cobra.Command, args []string) {
 	pwd, _ := os.Getwd()
 	project := yaml.ReadFile(pwd + "/../examples/hello-world.yml")
-
-	fmt.Printf("%v\n", project.Project)
-	fmt.Printf("%v\n", project)
 
 	docker.ListAllContainers()
 	for _, service := range project.Services {

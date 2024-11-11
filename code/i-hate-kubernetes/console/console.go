@@ -7,28 +7,66 @@ import (
 	"strings"
 )
 
+const (
+	moveCursorOneLineUpInTheTerminal = "\033[A"
+	moveCursorToStartOfLine          = "\r"
+	moveCursorToEndOfLine            = "\033[999C"
+	clearConsole                     = "\033[H\033[2J"
+)
+
+var lastPrintWasASpinner = false
+var spinnerCount int = 0 //Overflow is fine
+var indicators = []string{"-", "\\", "|", "/"}
+
+func Spinner(arguments ...any) {
+	spinnerCount++
+	controlCharacters := ""
+	if lastPrintWasASpinner {
+		controlCharacters = moveCursorOneLineUpInTheTerminal + moveCursorToStartOfLine
+	}
+	nextIndicator := indicators[spinnerCount%len(indicators)]
+
+	fmt.Print(controlCharacters)
+	fmt.Print(nextIndicator, " ")
+	common(arguments...)
+	fmt.Print(moveCursorOneLineUpInTheTerminal, moveCursorToEndOfLine, nextIndicator)
+	lastPrintWasASpinner = true
+	fmt.Print("\r\n")
+}
+
 func Clear() {
-	fmt.Print("\033[H\033[2J")
+	fmt.Print(clearConsole)
 }
 
 func Log(arguments ...any) {
+	lastPrintWasASpinner = false
 	common(arguments...)
 }
 
 func Info(arguments ...any) {
+	lastPrintWasASpinner = false
 	common(arguments...)
 }
 
 func Debug(arguments ...any) {
+	lastPrintWasASpinner = false
 	common(arguments...)
 }
 
 func Trace(arguments ...any) {
+	lastPrintWasASpinner = false
 	common(arguments...)
 }
 
 func Error(arguments ...any) {
+	lastPrintWasASpinner = false
 	common(arguments...)
+}
+
+func Fatal(arguments ...any) {
+	lastPrintWasASpinner = false
+	common(arguments...)
+	panic("Fatal")
 }
 
 func common(arguments ...any) {

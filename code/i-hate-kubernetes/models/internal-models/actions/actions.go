@@ -43,17 +43,17 @@ func CreateRestartContainer(container engine_models.Container, node models.Node)
 }
 
 func (action DeployContainerForService) Run() {
-	console.Log("Deploy container", action)
+	console.Log("Deploy container", action.Service.Id)
 	docker.CreateContainerFromService(action.Service)
 }
 
 func (action RestartContainer) Run() {
-	console.Log("Restart container", action)
+	console.Log("Restart container", action.Container.Id)
 	docker.StartContainer(action.Container.Id)
 }
 
 func (action RemoveContainer) Run() {
-	console.Log("Remove container", action)
+	console.Log("Remove container", action.Container.Id)
 }
 
 func (action DeployNewNode) Run() {

@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/client"
@@ -41,10 +40,6 @@ func runStop(cmd *cobra.Command, args []string) {
 	pwd, _ := os.Getwd()
 	project := yaml.ReadFile(pwd + "/../examples/hello-world.yml")
 
-	fmt.Printf("%v\n", project.Project)
-	fmt.Printf("%v\n", project)
-
 	c := client.CreateClient()
 	c.StopProject(project)
-	c.PrettyPrint()
 }

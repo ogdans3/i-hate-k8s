@@ -1,0 +1,23 @@
+# TODO
+
+- [ ] Restart containers
+- [ ] Deploy new containers
+- [ ] Autoscaling containers
+- [ ] Autoscale more nodes
+- [ ] Logging
+- [ ] Dashboard
+- [ ] Analytics
+- [ ] Cache
+- [ ] Loadbalancer
+- [ ] Build system
+- [ ] HTTPS
+- [ ] www redirect
+- [ ] Certificates
+- [ ] Debug information
+- [ ] Documentation
+- [ ] Registry
+- [ ] Networking
+- [ ] Dns?
+- [ ] Support CNF
+- [ ] A daemon
+- [ ] API (via unix sockets?)

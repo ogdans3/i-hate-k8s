@@ -3,9 +3,7 @@ package docker
 import (
 	"context"
 	"fmt"
-	"io"
-	"log"
-	"os"
+	"sync"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -45,35 +43,56 @@ func StopAllContainers() {
 		panic(err)
 	}
 
-	if len(containers) == 0 {
-		fmt.Printf("No containers\n")
-	}
 	timeout := 10
+	var wg sync.WaitGroup
 	for _, ctr := range containers {
-		fmt.Printf("%s %s (status: %s)\n", ctr.ID, ctr.Image, ctr.Status)
-		log.Printf("Stopping container %s", ctr.ID)
-		err := apiClient.ContainerStop(ctx, ctr.ID, container.StopOptions{
-			Timeout: &timeout,
-		})
-		if err != nil {
-			log.Printf("Failed to stop container: %s, %s", ctr.ID, err)
-			//TODO: Handle error?
-			continue
-		}
-		log.Printf("%s stopped", ctr.ID)
-		log.Printf("Removing container, volumes, and links for %s", ctr.ID)
-		err = apiClient.ContainerRemove(ctx, ctr.ID, container.RemoveOptions{
-			RemoveLinks:   false, //TODO: If this is true, then i get this error: Error response from daemon: Conflict, cannot remove the default link name of the container
-			RemoveVolumes: true,
-			Force:         true,
-		})
-		if err != nil {
-			log.Printf("Failed to remove container, volumes, or links: %s, %s", ctr.ID, err)
-			//TODO: Handle error?
-			continue
-		}
-		log.Printf("%s removed", ctr.ID)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			err := apiClient.ContainerStop(ctx, ctr.ID, container.StopOptions{
+				Timeout: &timeout,
+			})
+			if err != nil {
+				console.Error("Failed to stop container: %s, %s", ctr.ID, err)
+				//TODO: Send error back
+			}
+		}()
 	}
+	wg.Wait()
+}
+
+func StopAndRemoveAllContainers() {
+	apiClient, err := client.NewClientWithOpts(client.FromEnv)
+	if err != nil {
+		panic(err)
+	}
+	defer apiClient.Close()
+
+	ctx := context.Background()
+
+	containers, err := apiClient.ContainerList(ctx, container.ListOptions{All: true})
+	if err != nil {
+		panic(err)
+	}
+	StopAllContainers()
+
+	var wg sync.WaitGroup
+	for _, ctr := range containers {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			err = apiClient.ContainerRemove(ctx, ctr.ID, container.RemoveOptions{
+				RemoveLinks:   false, //TODO: If this is true, then i get this error: Error response from daemon: Conflict, cannot remove the default link name of the container
+				RemoveVolumes: true,
+				Force:         true,
+			})
+			if err != nil {
+				console.Error("Failed to remove container, volumes, or links: %s, %s", ctr.ID, err)
+				//TODO: Handle error?
+			}
+		}()
+	}
+	wg.Wait()
 }
 
 func CreateContainerFromService(service models.Service) string {
@@ -89,12 +108,9 @@ func CreateContainerFromService(service models.Service) string {
 
 	reader, err := apiClient.ImagePull(ctx, imageName, image.PullOptions{})
 	if err != nil {
-		log.Fatal(err)
+		console.Error(err)
 	}
 	defer reader.Close()
-	io.Copy(os.Stdout, reader)
-
-	fmt.Printf("%v\n", reader)
 
 	createdContainer, err := apiClient.ContainerCreate(ctx, &container.Config{
 		Image: imageName,
@@ -109,7 +125,6 @@ func CreateContainerFromService(service models.Service) string {
 
 	StartContainer(createdContainer.ID)
 
-	console.Log(createdContainer)
 	return createdContainer.ID
 }
 

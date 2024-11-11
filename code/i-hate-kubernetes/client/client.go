@@ -2,6 +2,7 @@ package client
 
 import (
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/client/engine-interface/docker"
@@ -36,11 +37,9 @@ func CreateClient() Client {
 }
 
 func (client *Client) Loop() {
-	indicators := []string{"-", "\\", "|", "/"}
 	i := 0
 	for {
-		console.Clear()
-		console.Log("We are working", indicators[i%len(indicators)])
+		console.Spinner("Waiting for something to happen")
 		client.Update()
 		client.MoveTowardsDesiredState()
 		time.Sleep(200 * time.Millisecond)
@@ -50,56 +49,64 @@ func (client *Client) Loop() {
 
 func (client *Client) MoveTowardsDesiredState() {
 	actions := client.CalculateActions()
+	var wg sync.WaitGroup
 	for _, action := range actions {
-		console.Log("Running actions")
-		action.Run()
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			action.Run()
+		}()
 	}
+	wg.Wait()
 }
 
 func (client *Client) CalculateActions() []model_actions.Action {
 	actions := make([]model_actions.Action, 0)
 
 	for _, project := range client.projects {
-		if len(client.containers) == 0 {
-			if project.Loadbalancer != nil {
-				actions = append(actions, model_actions.CreateDeployContainerForService(*project.Loadbalancer.Service))
-			}
-			for _, service := range project.Services {
-				actions = append(actions, model_actions.CreateDeployContainerForService(*service))
-			}
+		for _, service := range project.Services {
+			actionsForThisService := addActionsForService(client.Node, service, client.containers)
+			actions = append(actions, actionsForThisService...)
 		}
 
-		for _, service := range project.Services {
-			foundContainer := false
-			for _, container := range client.containers {
-				for _, name := range container.Names {
-					if strings.Contains(name, service.Id) {
-						switch container.State {
-						case "created":
-							fallthrough
-						case "restarting":
-							fallthrough
-						case "running":
-							//The container is either about to start, or is running. So we do nothing here
-							break
-						case "paused":
-							actions = append(actions, model_actions.CreateDeployContainerForService(*service))
-						case "exited":
-							fallthrough
-						case "dead":
-							//TODO: Should we try to restart the container? Maybe the user stopped them on purpose?
-							actions = append(actions, model_actions.CreateRestartContainer(container, client.Node))
-						}
-						foundContainer = true
-					}
-				}
-			}
-			if !foundContainer {
-				actions = append(actions, model_actions.CreateDeployContainerForService(*service))
-			}
+		if project.Loadbalancer != nil {
+			actionsForThisService := addActionsForService(client.Node, project.Loadbalancer.Service, client.containers)
+			actions = append(actions, actionsForThisService...)
 		}
 	}
 
+	return actions
+}
+
+func addActionsForService(node models.Node, service *models.Service, containers []engine_models.Container) []model_actions.Action {
+	actions := make([]model_actions.Action, 0)
+	foundContainer := false
+	for _, container := range containers {
+		for _, name := range container.Names {
+			if strings.Contains(name, service.Id) {
+				switch container.State {
+				case "created":
+					fallthrough
+				case "restarting":
+					fallthrough
+				case "running":
+					//The container is either about to start, or is running. So we do nothing here
+					break
+				case "paused":
+					actions = append(actions, model_actions.CreateDeployContainerForService(*service))
+				case "exited":
+					fallthrough
+				case "dead":
+					//TODO: Should we try to restart the container? Maybe the user stopped them on purpose?
+					actions = append(actions, model_actions.CreateRestartContainer(container, node))
+				}
+				foundContainer = true
+			}
+		}
+	}
+	if !foundContainer {
+		actions = append(actions, model_actions.CreateDeployContainerForService(*service))
+	}
 	return actions
 }
 
@@ -146,16 +153,10 @@ func (client *Client) GetContainers() []engine_models.Container {
 }
 
 func (client *Client) Nuke() {
-	docker.StopAllContainers()
+	docker.StopAndRemoveAllContainers()
 }
 
 func (client *Client) StopProject(project models.Project) {
 	//TODO: Use the project specification to remove containers
 	docker.StopAllContainers()
-}
-
-func (client *Client) PrettyPrint() {
-	for _, container := range client.containers {
-		console.Log(container.Id, container.Status)
-	}
 }

@@ -1,7 +1,6 @@
 package external_models
 
 import (
-	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/console"
 	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/models/definitions"
 	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/models/util"
 )
@@ -27,6 +26,5 @@ func (service *Service) InsertDefaults(serviceName string) {
 		containerName = service.Image
 	}
 	service.FullName = definitions.CONTAINER_KEY + "_" + containerName + "_" + util.RandStringBytesMaskImpr(3)
-	console.Log("Insert defaults: ", service, serviceName)
 	service.ServiceName = serviceName
 }

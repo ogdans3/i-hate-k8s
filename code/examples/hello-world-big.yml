@@ -1,0 +1,57 @@
+project: hello-world
+engine: docker
+
+logging: false
+analytics: false
+dashboard: true
+loadbalancer: true
+registry: true
+
+webserver:
+    image: strm/helloworld-http
+    www: true
+    https: true
+    ports:
+        - "8080:80"
+    autoscale:
+        initial: 1
+        autoscale: true
+
+webserver2:
+    image: strm/helloworld-http
+webserver3:
+    image: strm/helloworld-http
+webserver4:
+    image: strm/helloworld-http
+webserver5:
+    image: strm/helloworld-http
+webserver6:
+    image: strm/helloworld-http
+webserver7:
+    image: strm/helloworld-http
+webserver8:
+    image: strm/helloworld-http
+webserver9:
+    image: strm/helloworld-http
+webserver10:
+    image: strm/helloworld-http
+webserver11:
+    image: strm/helloworld-http
+webserver12:
+    image: strm/helloworld-http
+webserver13:
+    image: strm/helloworld-http
+webserver14:
+    image: strm/helloworld-http
+webserver15:
+    image: strm/helloworld-http
+webserver16:
+    image: strm/helloworld-http
+webserver17:
+    image: strm/helloworld-http
+webserver18:
+    image: strm/helloworld-http
+webserver19:
+    image: strm/helloworld-http
+webserver20:
+    image: strm/helloworld-http

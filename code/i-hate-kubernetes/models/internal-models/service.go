@@ -1,7 +1,6 @@
 package models
 
 import (
-	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/console"
 	external_models "github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/models/external-models"
 )
 
@@ -22,7 +21,6 @@ type Service struct {
 }
 
 func ParseService(service *external_models.Service, projectId string) *Service {
-	console.Log("Parse service: ", service, service.ServiceName)
 	return &Service{
 		Id:            projectId + "-" + service.ServiceName,
 		ServiceName:   service.ServiceName,
