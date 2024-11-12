@@ -123,6 +123,11 @@ func examiner(str *strings.Builder, depth int, v reflect.Value, isVarargs bool) 
 			str.WriteString(" ]")
 		}
 	case reflect.Interface:
+		//Go is so butiful, not
+		errorInterface := reflect.TypeOf((*error)(nil)).Elem()
+		if v.Type().Implements(errorInterface) {
+			str.WriteString(fmt.Sprint(v))
+		}
 		examiner(str, depth, v.Elem(), isVarargs)
 	case reflect.Chan:
 	case reflect.Map:
@@ -149,7 +154,12 @@ func examiner(str *strings.Builder, depth int, v reflect.Value, isVarargs bool) 
 		}
 		str.WriteString(" }")
 	case reflect.Invalid:
-		panic("Oh no, invalid type")
+		break
+		//fmt.Println()
+		//fmt.Println(v)
+		//fmt.Println(v.Type())
+		//fmt.Println(v.Elem())
+		//panic("Oh no, invalid type")
 	case reflect.String:
 		if isVarargs {
 			str.WriteString(v.String())

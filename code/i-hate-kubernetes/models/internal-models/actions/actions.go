@@ -8,22 +8,28 @@ import (
 )
 
 type Action interface {
-	Run()
+	Run() error
 }
 
 type DeployContainerForService struct {
-	Service models.Service
 	Node    *models.Node
+	Service models.Service
 }
 
 type RestartContainer struct {
-	Container engine_models.Container
 	Node      models.Node
+	Container engine_models.Container
 }
 
 type RemoveContainer struct {
-	Container engine_models.Container
 	Node      models.Node
+	Container engine_models.Container
+}
+
+type UpdateLoadbalancer struct {
+	Node                 models.Node
+	Container            engine_models.Container
+	NetworkConfiguration models.LoadbalancerNetworkConfiguration
 }
 
 type DeployNewNode struct {
@@ -42,20 +48,30 @@ func CreateRestartContainer(container engine_models.Container, node models.Node)
 	}
 }
 
-func (action DeployContainerForService) Run() {
+func (action DeployContainerForService) Run() error {
 	console.Log("Deploy container", action.Service.Id)
 	docker.CreateContainerFromService(action.Service)
+	return nil
 }
 
-func (action RestartContainer) Run() {
+func (action RestartContainer) Run() error {
 	console.Log("Restart container", action.Container.Id)
 	docker.StartContainer(action.Container.Id)
+	return nil
 }
 
-func (action RemoveContainer) Run() {
+func (action RemoveContainer) Run() error {
 	console.Log("Remove container", action.Container.Id)
+	return nil
 }
 
-func (action DeployNewNode) Run() {
+func (action DeployNewNode) Run() error {
 	console.Log("Deploy new node", action)
+	return nil
+}
+
+func (action UpdateLoadbalancer) Run() error {
+	console.Log("Update loadbalancer", action.Container.Id)
+	err := docker.AddNewNginxConfigurationToContainer(action.NetworkConfiguration.ConfigurationToNginxFile(), action.Container)
+	return err
 }

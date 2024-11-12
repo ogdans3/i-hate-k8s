@@ -14,7 +14,7 @@ type Port struct {
 
 func ParsePort(strPort string) Port {
 	protocol := "tcp"
-	hostPort := "80"
+	hostPort := ""
 	containerPort := "80"
 
 	parts := strings.Split(strPort, "/")
@@ -26,8 +26,8 @@ func ParsePort(strPort string) Port {
 	// Split hostPort and containerPort
 	hostPortParts := strings.Split(parts[0], ":")
 	if len(hostPortParts) == 1 {
-		hostPort = hostPortParts[0]
-		containerPort = hostPort
+		//hostPort = hostPortParts[0]
+		containerPort = hostPortParts[0]
 	} else {
 		hostPort = hostPortParts[0]
 		containerPort = hostPortParts[1]

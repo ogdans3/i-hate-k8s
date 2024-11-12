@@ -9,6 +9,7 @@ type Container struct {
 	Status  string
 	State   string //One of created, restarting, running, removing, paused, exited, or dead
 	Names   []string
+	Ip      string
 
 	Node models.Node
 }
