@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	clientState "github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/client/client-state"
 	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/client/engine-interface/docker"
 	engine_models "github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/client/engine-interface/engine-models"
 	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/console"
@@ -13,25 +14,24 @@ import (
 )
 
 type Client struct {
-	containers            []engine_models.Container
-	projects              []models.Project
-	containerToServiceMap map[string]string
-	Node                  models.Node
-	networkConfiguration  models.LoadbalancerNetworkConfiguration
+	state clientState.ClientState
 }
 
 func CreateClient() Client {
 	console.Clear()
 	client := Client{
-		containers:            make([]engine_models.Container, 0),
-		projects:              make([]models.Project, 0),
-		containerToServiceMap: make(map[string]string, 0),
-		networkConfiguration:  models.LoadbalancerNetworkConfiguration{},
-		Node: models.Node{
-			Ip:       "127.0.0.1",
-			Name:     "me",
-			HostName: "127.0.0.1",
-			Role:     models.ControlPlane,
+		state: clientState.ClientState{
+			Containers:             make([]engine_models.Container, 0),
+			Networks:               make([]engine_models.Network, 0),
+			Projects:               make([]models.Project, 0),
+			NetworkConfiguration:   models.LoadbalancerNetworkConfiguration{},
+			EngineNetworkToService: make(map[string][]models.Service, 0),
+			Node: models.Node{
+				Ip:       "127.0.0.1",
+				Name:     "me",
+				HostName: "127.0.0.1",
+				Role:     models.ControlPlane,
+			},
 		},
 	}
 	client.Update()
@@ -52,12 +52,19 @@ func (client *Client) Loop() {
 func (client *Client) MoveTowardsDesiredState() {
 	actions := client.CalculateActions()
 	var wg sync.WaitGroup
+	var mu sync.Mutex //TODO Will using a mutex here make it too slow?
 	for _, action := range actions {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			err := action.Run()
-			console.Log(err)
+			if err != nil {
+				console.Log(err)
+				return
+			}
+			mu.Lock()
+			action.Update(&client.state)
+			mu.Unlock()
 		}()
 	}
 	wg.Wait()
@@ -66,22 +73,42 @@ func (client *Client) MoveTowardsDesiredState() {
 func (client *Client) CalculateActions() []model_actions.Action {
 	actions := make([]model_actions.Action, 0)
 
-	for _, project := range client.projects {
+	for _, project := range client.state.Projects {
+		//Add actions to create networks
+		for _, service := range project.Services {
+			if service.Network.GetName() == nil {
+				continue
+			}
+			foundNetworkForService := false
+			for _, network := range client.state.Networks {
+				if network.Name == service.Network.Name {
+					foundNetworkForService = true
+					break
+				}
+			}
+			if !foundNetworkForService {
+				actions = append(actions, &model_actions.CreateNetwork{
+					Node:    client.state.Node,
+					Service: service,
+				})
+			}
+		}
+
 		//Add actions for containers (e.g. deploy new container, restart container)
 		for _, service := range project.Services {
-			actionsForThisService := addActionsForService(client.Node, service, client.containers)
+			actionsForThisService := addActionsForService(client.state.Node, service, client.state.Containers)
 			actions = append(actions, actionsForThisService...)
 		}
 
 		//Add actions for loadbalancer (e.g. deploy the loadbalancer)
 		if project.Loadbalancer != nil {
-			actionsForThisService := addActionsForService(client.Node, project.Loadbalancer.Service, client.containers)
+			actionsForThisService := addActionsForService(client.state.Node, project.Loadbalancer.Service, client.state.Containers)
 			actions = append(actions, actionsForThisService...)
 		}
 
 		//Add actions for network config for loadbalancer (e.g. a container changed port, a new container has been deployed)
 		if project.Loadbalancer != nil {
-			actionsForThisService := addLoadbalancerActions(client, client.Node, client.networkConfiguration, client.containers, project.Services, *project.Loadbalancer.Service)
+			actionsForThisService := addLoadbalancerActions(client, client.state.Node, client.state.NetworkConfiguration, client.state.Containers, project.Services, *project.Loadbalancer.Service)
 			actions = append(actions, actionsForThisService...)
 		}
 	}
@@ -98,9 +125,8 @@ func addLoadbalancerActions(
 	loadBalancerService models.Service,
 ) []model_actions.Action {
 	actions := make([]model_actions.Action, 0)
-	newConfig := models.LoadbalancerNetworkConfiguration{}
 
-	var loadBalancerContainer *engine_models.Container
+	var loadBalancerContainer *engine_models.Container = nil
 	for _, container := range containers {
 		for _, name := range container.Names {
 			if strings.Contains(name, loadBalancerService.Id) && container.State == "running" {
@@ -113,6 +139,9 @@ func addLoadbalancerActions(
 		return actions
 	}
 
+	newConfig := models.LoadbalancerNetworkConfiguration{
+		ContainerIdOfLoadbalancerThatHasThisConfig: &loadBalancerContainer.Id,
+	}
 	for _, service := range services {
 		upstreamBlock := models.Upstream{
 			Name:    service.ServiceName,
@@ -131,10 +160,11 @@ func addLoadbalancerActions(
 		for _, container := range containers {
 			for _, name := range container.Names {
 				if strings.Contains(name, service.Id) {
-					upstreamBlock.Servers = append(upstreamBlock.Servers, models.UpstreamServer{
-						//TODO: Add port
-						Server: container.Ip,
-					})
+					if container.Ip != nil {
+						upstreamBlock.Servers = append(upstreamBlock.Servers, models.UpstreamServer{
+							Server: *container.Ip,
+						})
+					}
 				}
 			}
 		}
@@ -147,18 +177,18 @@ func addLoadbalancerActions(
 			},
 		})
 	}
-	if newConfig.ConfigurationToNginxFile() != currentLoadbalancerNetworkConfiguration.ConfigurationToNginxFile() {
-		console.Log("NGinx config does not match. Use the new one")
-		console.Log(newConfig.ConfigurationToNginxFile())
-		actions = append(actions, model_actions.UpdateLoadbalancer{
-			Node:                 node,
-			Container:            *loadBalancerContainer,
-			NetworkConfiguration: newConfig,
-		})
-		//TODO: Do something proper here, we have to wait until the action has been run succesfully before we update the state
-		// Not entirely sure what the best way to accomplish this would be
-		client.networkConfiguration = newConfig
+	if newConfig.ConfigurationToNginxFile() == currentLoadbalancerNetworkConfiguration.ConfigurationToNginxFile() &&
+		currentLoadbalancerNetworkConfiguration.ContainerIdOfLoadbalancerThatHasThisConfig != nil &&
+		*currentLoadbalancerNetworkConfiguration.ContainerIdOfLoadbalancerThatHasThisConfig == loadBalancerContainer.Id {
+		return actions
 	}
+
+	console.Log(newConfig.ConfigurationToNginxFile())
+	actions = append(actions, &model_actions.UpdateLoadbalancer{
+		Node:                 node,
+		Container:            *loadBalancerContainer,
+		NetworkConfiguration: newConfig,
+	})
 
 	return actions
 }
@@ -197,52 +227,80 @@ func addActionsForService(node models.Node, service *models.Service, containers 
 	return actions
 }
 
-func (client *Client) AddContainerToService(containerId string, service models.Service) {
-	client.containerToServiceMap[containerId] = service.Id
-}
-
 func (client *Client) Update() {
 	containers := docker.ListAllContainers()
 
-	if len(containers) == 0 {
-		client.containers = make([]engine_models.Container, 0)
-		return
-	}
-	client.containers = make([]engine_models.Container, 0) //TODO: Dont reset here, wasted resources
+	client.state.Containers = make([]engine_models.Container, 0) //TODO: Dont reset here, wasted resources
 	for _, ctr := range containers {
-		client.containers = append(client.containers, engine_models.Container{
+		var project *models.Project
+		var service *models.Service
+		for _, p := range client.state.Projects {
+			for _, name := range ctr.Names {
+				if strings.Contains(name, p.Project) {
+					project = &p
+				}
+			}
+		}
+		if project != nil {
+			for _, s := range project.Services {
+				for _, name := range ctr.Names {
+					if strings.Contains(name, s.Id) {
+						service = s
+					}
+				}
+			}
+		}
+
+		var ip *string
+		if service != nil && service.Network.GetName() != nil {
+			//TODO: Handle multiple networks, or atleast use a default network for the loadbalancer
+			if ctr.NetworkSettings.Networks[*service.Network.GetName()] != nil {
+				ip = &ctr.NetworkSettings.Networks[*service.Network.GetName()].IPAddress
+			}
+		}
+
+		client.state.Containers = append(client.state.Containers, engine_models.Container{
 			Id:      ctr.ID,
 			Image:   ctr.Image,
 			Command: ctr.Command,
 			Status:  ctr.Status,
 			State:   ctr.State,
 			Names:   ctr.Names,
-			//TODO: Handle multiple networks, or atleast use a default network for the loadbalancer
-			Ip: ctr.NetworkSettings.Networks["bridge"].IPAddress,
+			Ip:      ip,
 
-			Node: client.Node,
+			ProjectIdentifier: project.GetId(),
+			ServiceIdentifier: service.GetId(),
+
+			Node: client.state.Node,
+		})
+	}
+
+	networkSummaries, err := docker.ListNetworks()
+	if err != nil {
+		//TODO: Handle error
+		console.Log(err)
+		return
+	}
+
+	client.state.Networks = make([]engine_models.Network, 0) //TODO: Dont reset here, wasted resources
+	for _, networkSummary := range *networkSummaries {
+		client.state.Networks = append(client.state.Networks, engine_models.Network{
+			Id:   networkSummary.ID,
+			Name: networkSummary.Name,
 		})
 	}
 }
 
 func (client *Client) AddProject(project models.Project) {
-	client.projects = append(client.projects, project)
-	/*
-		if project.Loadbalancer != nil {
-			docker.CreateContainerFromService(project.Loadbalancer.Service)
-		}
-		for _, service := range project.Services {
-			docker.CreateContainerFromService(service)
-		}
-	*/
+	client.state.Projects = append(client.state.Projects, project)
 }
 
 func (client *Client) GetContainers() []engine_models.Container {
-	return client.containers
+	return client.state.Containers
 }
 
 func (client *Client) Nuke() {
-	docker.StopAndRemoveAllContainers()
+	docker.StopAndRemoveAllContainersAndNetworks()
 }
 
 func (client *Client) StopProject(project models.Project) {

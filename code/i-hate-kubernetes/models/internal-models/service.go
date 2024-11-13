@@ -18,6 +18,8 @@ type Service struct {
 	Https     bool      //Should https be used
 	Ports     []Port    //A list of port mappings
 	Autoscale Autoscale //Autoscaling settings for this pod
+
+	Network *Network
 }
 
 func ParseService(service *external_models.Service, projectId string) *Service {
@@ -35,6 +37,10 @@ func ParseService(service *external_models.Service, projectId string) *Service {
 		Https:     service.Https,
 		Ports:     ParsePorts(service.Ports),
 		Autoscale: ParseAutoscale(service.Autoscale),
+
+		Network: &Network{
+			Name: projectId,
+		},
 	}
 }
 
@@ -44,4 +50,12 @@ func ParseServices(unparsedServices map[string]*external_models.Service, project
 		services[key] = ParseService(service, projectId)
 	}
 	return services
+}
+
+func (service *Service) GetId() *string {
+	if service == nil {
+		return nil
+	}
+
+	return &service.Id
 }

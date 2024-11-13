@@ -2,12 +2,14 @@ package docker
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
+	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
 	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/console"
@@ -61,7 +63,7 @@ func StopAllContainers() {
 	wg.Wait()
 }
 
-func StopAndRemoveAllContainers() {
+func StopAndRemoveAllContainersAndNetworks() {
 	apiClient, err := client.NewClientWithOpts(client.FromEnv)
 	if err != nil {
 		panic(err)
@@ -93,6 +95,20 @@ func StopAndRemoveAllContainers() {
 		}()
 	}
 	wg.Wait()
+
+	networks, err := apiClient.NetworkList(ctx, network.ListOptions{})
+	for _, n := range networks {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			err = apiClient.NetworkRemove(ctx, n.ID)
+			if err != nil {
+				console.Error("Failed to remove network: %s, %s", n.ID, err)
+				//TODO: Handle error?
+			}
+		}()
+	}
+	wg.Wait()
 }
 
 func CreateContainerFromService(service models.Service) string {
@@ -112,12 +128,28 @@ func CreateContainerFromService(service models.Service) string {
 	}
 	defer reader.Close()
 
-	createdContainer, err := apiClient.ContainerCreate(ctx, &container.Config{
-		Image: imageName,
-	},
+	networkName := service.Network.GetName()
+	var networkConfig *network.NetworkingConfig
+	if networkName != nil {
+		networkConfig = &network.NetworkingConfig{
+			EndpointsConfig: map[string]*network.EndpointSettings{
+				*networkName: {},
+			},
+		}
+	}
+
+	createdContainer, err := apiClient.ContainerCreate(
+		ctx,
+		&container.Config{
+			Image: imageName,
+		},
 		&container.HostConfig{
 			PortBindings: portToPortBinding(service.Ports),
-		}, nil, nil, service.Id+"-"+service.ContainerName+"-"+util.RandStringBytesMaskImpr(5))
+		},
+		networkConfig,
+		nil,
+		service.Id+"-"+service.ContainerName+"-"+util.RandStringBytesMaskImpr(5),
+	)
 
 	if err != nil {
 		panic(err)
@@ -140,6 +172,46 @@ func StartContainer(containerId string) {
 	if err := apiClient.ContainerStart(ctx, containerId, container.StartOptions{}); err != nil {
 		panic(err)
 	}
+}
+
+func CreateNetwork(n models.Network) (*string, error) {
+	ctx := context.Background()
+
+	apiClient, err := client.NewClientWithOpts(client.FromEnv)
+	if err != nil {
+		panic(err)
+	}
+	defer apiClient.Close()
+
+	if n.GetName() == nil {
+		return nil, errors.New("no network name specified")
+	}
+
+	networkCreateResponse, err := apiClient.NetworkCreate(ctx, *n.GetName(), network.CreateOptions{
+		Driver: "bridge", //TODO isnt this wrong. Shouldnt these networks be isolated from the internet?
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	return &networkCreateResponse.ID, nil
+}
+
+func ListNetworks() (*[]network.Inspect, error) {
+	ctx := context.Background()
+
+	apiClient, err := client.NewClientWithOpts(client.FromEnv)
+	if err != nil {
+		panic(err)
+	}
+	defer apiClient.Close()
+
+	response, err := apiClient.NetworkList(ctx, network.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	return &response, nil
 }
 
 func portToPortBinding(ports []models.Port) map[nat.Port][]nat.PortBinding {

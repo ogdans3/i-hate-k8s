@@ -52,7 +52,8 @@ type Http struct {
 }
 
 type LoadbalancerNetworkConfiguration struct {
-	HttpBlocks []Http
+	ContainerIdOfLoadbalancerThatHasThisConfig *string
+	HttpBlocks                                 []Http
 }
 
 const lineEnding string = "\r\n"

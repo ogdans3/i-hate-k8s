@@ -27,3 +27,11 @@ func ParseProject(project external_models.Project) Project {
 		Services:     ParseServices(project.Services, project.Project),
 	}
 }
+
+func (project *Project) GetId() *string {
+	if project == nil {
+		return nil
+	}
+
+	return &project.Project
+}
