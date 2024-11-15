@@ -41,8 +41,8 @@ func ParsePort(strPort string) Port {
 
 func ParsePorts(strPorts []string) []Port {
 	ports := make([]Port, len(strPorts))
-	for _, port := range strPorts {
-		ports = append(ports, ParsePort(port))
+	for i, port := range strPorts {
+		ports[i] = ParsePort(port)
 	}
 	return ports
 }

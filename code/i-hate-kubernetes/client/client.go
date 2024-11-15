@@ -26,6 +26,7 @@ func CreateClient() Client {
 			Projects:               make([]models.Project, 0),
 			NetworkConfiguration:   models.LoadbalancerNetworkConfiguration{},
 			EngineNetworkToService: make(map[string][]models.Service, 0),
+			ContainerMetadata:      make(map[string]clientState.ContainerMetadata, 0),
 			Node: models.Node{
 				Ip:       "127.0.0.1",
 				Name:     "me",
@@ -51,6 +52,7 @@ func (client *Client) Loop() {
 
 func (client *Client) MoveTowardsDesiredState() {
 	actions := client.CalculateActions()
+	actions = model_actions.GetDistinctActions(actions)
 	var wg sync.WaitGroup
 	var mu sync.Mutex //TODO Will using a mutex here make it too slow?
 	for _, action := range actions {
@@ -88,21 +90,35 @@ func (client *Client) CalculateActions() []model_actions.Action {
 			}
 			if !foundNetworkForService {
 				actions = append(actions, &model_actions.CreateNetwork{
-					Node:    client.state.Node,
+					Node:    &client.state.Node,
 					Service: service,
 				})
 			}
 		}
 
-		//Add actions for containers (e.g. deploy new container, restart container)
+		//Add actions for registry (e.g. deploy the registry)
+		if project.Registry != nil {
+			actionsForThisService := addActionsForService(client, client.state.Node, project.Registry.Service, client.state.Containers, project)
+			if len(actionsForThisService) > 0 {
+				actions = append(actions, actionsForThisService...)
+				//The registry must be available for us to continue
+				return actions
+			} else if !isRegistryAvailable(client, client.state.Node, project.Registry.Service, client.state.Containers) {
+				//The registry must be available for us to continue
+				// We could be waiting for a probe, for example.
+				return actions
+			}
+		}
+
+		//Add actions for services (e.g. deploy new container, restart container)
 		for _, service := range project.Services {
-			actionsForThisService := addActionsForService(client.state.Node, service, client.state.Containers)
+			actionsForThisService := addActionsForService(client, client.state.Node, service, client.state.Containers, project)
 			actions = append(actions, actionsForThisService...)
 		}
 
 		//Add actions for loadbalancer (e.g. deploy the loadbalancer)
 		if project.Loadbalancer != nil {
-			actionsForThisService := addActionsForService(client.state.Node, project.Loadbalancer.Service, client.state.Containers)
+			actionsForThisService := addActionsForService(client, client.state.Node, project.Loadbalancer.Service, client.state.Containers, project)
 			actions = append(actions, actionsForThisService...)
 		}
 
@@ -162,7 +178,7 @@ func addLoadbalancerActions(
 				if strings.Contains(name, service.Id) {
 					if container.Ip != nil {
 						upstreamBlock.Servers = append(upstreamBlock.Servers, models.UpstreamServer{
-							Server: *container.Ip,
+							Server: *container.GetIp(),
 						})
 					}
 				}
@@ -185,17 +201,15 @@ func addLoadbalancerActions(
 
 	console.Log(newConfig.ConfigurationToNginxFile())
 	actions = append(actions, &model_actions.UpdateLoadbalancer{
-		Node:                 node,
-		Container:            *loadBalancerContainer,
-		NetworkConfiguration: newConfig,
+		Node:                 &node,
+		Container:            loadBalancerContainer,
+		NetworkConfiguration: &newConfig,
 	})
 
 	return actions
 }
 
-func addActionsForService(node models.Node, service *models.Service, containers []engine_models.Container) []model_actions.Action {
-	actions := make([]model_actions.Action, 0)
-	foundContainer := false
+func isRegistryAvailable(client *Client, node models.Node, service *models.Service, containers []engine_models.Container) bool {
 	for _, container := range containers {
 		for _, name := range container.Names {
 			if strings.Contains(name, service.Id) {
@@ -203,25 +217,68 @@ func addActionsForService(node models.Node, service *models.Service, containers 
 				case "created":
 					fallthrough
 				case "restarting":
+					return false
+				case "running":
+					//We dont need to check if the probe should run, because we should never enter this code if the probe should run
+					if service.Probes != nil && service.Probes.Ready != nil {
+						return client.state.ContainerMetadata[container.Id].ProbesMetadata.Readiness.ResultOfLastCheck
+					}
+					return true
+				case "paused":
+					return false
+				case "exited":
 					fallthrough
+				case "dead":
+					return false
+				}
+			}
+		}
+	}
+	return false
+}
+
+func addActionsForService(c *Client, node models.Node, service *models.Service, containers []engine_models.Container, project models.Project) []model_actions.Action {
+	actions := make([]model_actions.Action, 0)
+	containersFound := 0
+	for _, container := range containers {
+		for _, name := range container.Names {
+			if strings.Contains(name, service.Id) {
+				switch container.State {
+				case "created":
+					fallthrough
+				case "restarting":
+					//The container is starting
+					//TODO: Add probes
+					break
 				case "running":
 					//The container is either about to start, or is running. So we do nothing here
-					break
+					if service.Probes != nil && service.Probes.Ready != nil {
+						action := model_actions.CreateReadinessProbe(
+							&node,
+							service,
+							&container,
+							service.Probes.Ready,
+							c.state.ContainerMetadata[container.Id], //TODO: Handler pointers and stufs?
+						)
+						if action != nil {
+							actions = append(actions, action)
+						}
+					}
 				case "paused":
-					actions = append(actions, model_actions.CreateDeployContainerForService(*service))
+					actions = append(actions, model_actions.CreateDeployContainerForService(service, &project))
 				case "exited":
 					fallthrough
 				case "dead":
 					//TODO: Should we try to restart the container? Maybe the user stopped them on purpose?
-					actions = append(actions, model_actions.CreateRestartContainer(container, node))
+					actions = append(actions, model_actions.CreateRestartContainer(&container, &node))
 				}
-				foundContainer = true
+				containersFound++
 			}
 		}
 	}
-	if !foundContainer {
-		for i := 0; i < int(service.Autoscale.Initial); i++ {
-			actions = append(actions, model_actions.CreateDeployContainerForService(*service))
+	if containersFound < int(service.Autoscale.Initial) {
+		for i := containersFound; i < int(service.Autoscale.Initial); i++ {
+			actions = append(actions, model_actions.CreateDeployContainerForService(service, &project))
 		}
 	}
 	return actions
@@ -242,8 +299,16 @@ func (client *Client) Update() {
 			}
 		}
 		if project != nil {
-			for _, s := range project.Services {
-				for _, name := range ctr.Names {
+			for _, name := range ctr.Names {
+				if strings.Contains(name, project.Loadbalancer.Service.Id) {
+					service = project.Loadbalancer.Service
+					break
+				}
+				if strings.Contains(name, project.Registry.Service.Id) {
+					service = project.Registry.Service
+					break
+				}
+				for _, s := range project.Services {
 					if strings.Contains(name, s.Id) {
 						service = s
 					}
@@ -273,6 +338,15 @@ func (client *Client) Update() {
 
 			Node: client.state.Node,
 		})
+		if _, ok := client.state.ContainerMetadata[ctr.ID]; !ok {
+			client.state.ContainerMetadata[ctr.ID] = clientState.ContainerMetadata{
+				ProbesMetadata: &clientState.ProbesMetadata{
+					Started:   &clientState.ProbeMetadata{},
+					Liveness:  &clientState.ProbeMetadata{},
+					Readiness: &clientState.ProbeMetadata{LastCheck: time.Now().Unix()},
+				},
+			}
+		}
 	}
 
 	networkSummaries, err := docker.ListNetworks()

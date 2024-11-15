@@ -1,15 +1,19 @@
 package external_models
 
 type Project struct {
-	Project      string
-	Engine       string
+	Project string
+	Engine  string
+	Pwd     string
+
 	Logging      bool
 	Registry     bool
 	Dashboard    bool
 	Analytics    bool
 	Loadbalancer bool
-	Settings     Settings
-	Services     map[string]*Service `yaml:",inline"`
+	Cicd         bool
+
+	Settings Settings
+	Services map[string]*Service `yaml:",inline"`
 }
 
 func (project *Project) InsertDefaults() {

@@ -1,0 +1,18 @@
+project: docker-helloworld-http
+
+logging: true
+loadbalancer: true
+cicd: true
+
+webserver:
+    image: ogdans3/helloworld-http:latest
+    build: true
+    www: true
+    https: true
+    ports:
+        - "80"
+    autoscale:
+        initial: 2
+        autoscale: true
+
+

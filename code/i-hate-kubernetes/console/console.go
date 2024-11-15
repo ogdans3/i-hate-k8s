@@ -28,53 +28,66 @@ func Spinner(arguments ...any) {
 
 	fmt.Print(controlCharacters)
 	fmt.Print(nextIndicator, " ")
-	common(arguments...)
+	common(commonArguments{Types: false}, arguments...)
 	fmt.Print(moveCursorOneLineUpInTheTerminal, moveCursorToEndOfLine, nextIndicator)
 	lastPrintWasASpinner = true
 	fmt.Print("\r\n")
+}
+
+type commonArguments struct {
+	Types bool
 }
 
 func Clear() {
 	fmt.Print(clearConsole)
 }
 
+type GoIsDumb struct{}
+
+func (GoIsDumb) Log(arguments ...any) {
+	lastPrintWasASpinner = false
+	common(commonArguments{Types: true}, arguments...)
+}
+
+var Types = GoIsDumb{}
+
 func Log(arguments ...any) {
 	lastPrintWasASpinner = false
-	common(arguments...)
+	common(commonArguments{Types: false}, arguments...)
 }
 
 func Info(arguments ...any) {
 	lastPrintWasASpinner = false
-	common(arguments...)
+	common(commonArguments{Types: false}, arguments...)
 }
 
 func Debug(arguments ...any) {
 	lastPrintWasASpinner = false
-	common(arguments...)
+	common(commonArguments{Types: false}, arguments...)
 }
 
 func Trace(arguments ...any) {
 	lastPrintWasASpinner = false
-	common(arguments...)
+	common(commonArguments{Types: false}, arguments...)
 }
 
 func Error(arguments ...any) {
 	lastPrintWasASpinner = false
-	common(arguments...)
+	common(commonArguments{Types: false}, arguments...)
 }
 
 func Fatal(arguments ...any) {
 	lastPrintWasASpinner = false
-	common(arguments...)
+	common(commonArguments{Types: false}, arguments...)
 	panic("Fatal")
 }
 
-func common(arguments ...any) {
+func common(settings commonArguments, arguments ...any) {
 	var builder strings.Builder
 	if len(arguments) == 1 {
-		examiner(&builder, 0, reflect.ValueOf(arguments[0]), reflect.ValueOf(arguments[0]).Kind() == reflect.String)
+		examiner(&settings, &builder, 0, reflect.ValueOf(arguments[0]), reflect.ValueOf(arguments[0]).Kind() == reflect.String)
 	} else {
-		examiner(&builder, 0, reflect.ValueOf(arguments), true)
+		examiner(&settings, &builder, 0, reflect.ValueOf(arguments), true)
 	}
 	fmt.Println(builder.String())
 }
@@ -91,12 +104,12 @@ func log(arguments ...string) {
 	fmt.Println(merge(arguments...))
 }
 
-func examiner(str *strings.Builder, depth int, v reflect.Value, isVarargs bool) {
+func examiner(settings *commonArguments, str *strings.Builder, depth int, v reflect.Value, isVarargs bool) {
 	switch v.Kind() {
 	case reflect.Array:
 		str.WriteString("[ ")
 		for i := range v.Len() {
-			examiner(str, depth+1, v.Index(i).Elem(), false)
+			examiner(settings, str, depth+1, v.Index(i).Elem(), false)
 			if i+1 < v.Len() {
 				str.WriteString(", ")
 			}
@@ -112,7 +125,7 @@ func examiner(str *strings.Builder, depth int, v reflect.Value, isVarargs bool) 
 			}
 		}
 		for i := range v.Len() {
-			examiner(str, depth+1, v.Index(i), isVarargs && depth == 0)
+			examiner(settings, str, depth+1, v.Index(i), isVarargs && depth == 0)
 			if i+1 < v.Len() && (!isVarargs) {
 				str.WriteString(", ")
 			} else if isVarargs {
@@ -128,26 +141,27 @@ func examiner(str *strings.Builder, depth int, v reflect.Value, isVarargs bool) 
 		if v.Type().Implements(errorInterface) {
 			str.WriteString(fmt.Sprint(v))
 		}
-		examiner(str, depth, v.Elem(), isVarargs)
+		examiner(settings, str, depth, v.Elem(), isVarargs)
 	case reflect.Chan:
 	case reflect.Map:
 		str.WriteRune('{')
 		for iter := v.MapRange(); iter.Next(); {
 			key := iter.Key()
 			value := iter.Value()
-			examiner(str, depth+1, key, false)
+			examiner(settings, str, depth+1, key, false)
 			str.WriteString(": ")
-			examiner(str, depth+1, value, false)
+			examiner(settings, str, depth+1, value, false)
 		}
 		str.WriteRune('}')
 	case reflect.Ptr:
+		examiner(settings, str, depth, v.Elem(), false)
 		break
 	case reflect.Struct:
 		str.WriteString("{ ")
 		for i := 0; i < v.NumField(); i++ {
 			f := v.Type().Field(i)
 			str.WriteString(merge(f.Name, ": "))
-			examiner(str, depth+1, v.Field(i), false)
+			examiner(settings, str, depth+1, v.Field(i), false)
 			if i+1 < v.NumField() {
 				str.WriteString(", ")
 			}

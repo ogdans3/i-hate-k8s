@@ -1,5 +1,7 @@
 # This shit does not work yet, dont even try it
 
+To look at the registry images: http://localhost:5000/v2/_catalog
+
 # I hate kubernetes
 
 I hate kubernetes so im trying to make my own, where simplicity for the user is

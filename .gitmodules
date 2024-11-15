@@ -1,0 +1,3 @@
+[submodule "code/test-projects/helloworld"]
+	path = code/test-projects/helloworld
+	url = https://github.com/strm-containers/docker-helloworld-http.git

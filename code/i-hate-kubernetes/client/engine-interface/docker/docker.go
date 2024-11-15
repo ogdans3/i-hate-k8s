@@ -1,9 +1,15 @@
 package docker
 
 import (
+	"archive/tar"
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"log"
+	"os"
+	"path/filepath"
 	"sync"
 
 	"github.com/docker/docker/api/types"
@@ -11,18 +17,24 @@ import (
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/archive"
 	"github.com/docker/go-connections/nat"
 	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/console"
 	models "github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/models/internal-models"
 	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/models/util"
 )
 
-func ListAllContainers() []types.Container {
+func createDockerClient() *client.Client {
 	apiClient, err := client.NewClientWithOpts(client.FromEnv)
 	if err != nil {
 		panic(err)
 	}
 	defer apiClient.Close()
+	return apiClient
+}
+
+func ListAllContainers() []types.Container {
+	apiClient := createDockerClient()
 
 	containers, err := apiClient.ContainerList(context.Background(), container.ListOptions{All: true})
 	if err != nil {
@@ -33,11 +45,7 @@ func ListAllContainers() []types.Container {
 }
 
 func StopAllContainers() {
-	apiClient, err := client.NewClientWithOpts(client.FromEnv)
-	if err != nil {
-		panic(err)
-	}
-	defer apiClient.Close()
+	apiClient := createDockerClient()
 
 	ctx := context.Background()
 	containers, err := apiClient.ContainerList(ctx, container.ListOptions{All: true})
@@ -64,11 +72,7 @@ func StopAllContainers() {
 }
 
 func StopAndRemoveAllContainersAndNetworks() {
-	apiClient, err := client.NewClientWithOpts(client.FromEnv)
-	if err != nil {
-		panic(err)
-	}
-	defer apiClient.Close()
+	apiClient := createDockerClient()
 
 	ctx := context.Background()
 
@@ -89,6 +93,7 @@ func StopAndRemoveAllContainersAndNetworks() {
 				Force:         true,
 			})
 			if err != nil {
+				fmt.Println(err)
 				console.Error("Failed to remove container, volumes, or links: %s, %s", ctr.ID, err)
 				//TODO: Handle error?
 			}
@@ -103,7 +108,23 @@ func StopAndRemoveAllContainersAndNetworks() {
 			defer wg.Done()
 			err = apiClient.NetworkRemove(ctx, n.ID)
 			if err != nil {
+				fmt.Println(err)
 				console.Error("Failed to remove network: %s, %s", n.ID, err)
+				//TODO: Handle error?
+			}
+		}()
+	}
+	wg.Wait()
+
+	images, err := apiClient.ImageList(ctx, image.ListOptions{All: true})
+	for _, i := range images {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, err := apiClient.ImageRemove(ctx, i.ID, image.RemoveOptions{})
+			if err != nil {
+				fmt.Println(err)
+				console.Error("Failed to remove network: %s, %s", i.ID, err)
 				//TODO: Handle error?
 			}
 		}()
@@ -111,22 +132,77 @@ func StopAndRemoveAllContainersAndNetworks() {
 	wg.Wait()
 }
 
-func CreateContainerFromService(service models.Service) string {
+func BuildService(service models.Service, project models.Project) {
+	apiClient := createDockerClient()
 	ctx := context.Background()
 
-	apiClient, err := client.NewClientWithOpts(client.FromEnv)
+	var buf bytes.Buffer
+	tw := tar.NewWriter(&buf)
+	defer tw.Close()
+
+	tarContext, err := archive.Tar(filepath.Join(service.Pwd), 0)
 	if err != nil {
-		panic(err)
+		log.Fatalf("Error creating tar context: %v", err)
 	}
-	defer apiClient.Close()
+
+	imageName := service.Image
+	imageTag := imageName
+	if service.Build && project.Registry != nil {
+		//TODO: Get this from the actual registry service or container?
+		imageTag = "localhost:5000/" + imageName
+		imageName = "localhost:5000/" + imageName
+	}
+
+	response, err := apiClient.ImageBuild(ctx, tarContext, types.ImageBuildOptions{
+		Dockerfile: "Dockerfile",
+		Remove:     true,
+		Tags:       []string{imageName},
+		PullParent: true,
+	})
+	if err != nil {
+		fmt.Println(err)
+		console.Fatal(err)
+	}
+	defer response.Body.Close()
+	io.Copy(os.Stdout, response.Body)
+
+	imagePushResponse, err := apiClient.ImagePush(ctx, imageTag, image.PushOptions{
+		All:          true,
+		RegistryAuth: "TODO2", //TODO: The registry auth must be there, but the value does not matter
+	})
+	if err != nil {
+		fmt.Println(err)
+		console.Fatal(err)
+	}
+	defer imagePushResponse.Close()
+	io.Copy(os.Stdout, imagePushResponse)
+	console.Log("Image built and pushed")
+}
+
+func CreateContainerFromService(service models.Service, project *models.Project) (*string, error) {
+	apiClient := createDockerClient()
+	ctx := context.Background()
 
 	imageName := service.Image
 
-	reader, err := apiClient.ImagePull(ctx, imageName, image.PullOptions{})
+	fmt.Println(project)
+	if service.Build && project.Registry != nil {
+		//TODO: Get this from the actual registry service or container?
+		imageName = "localhost:5000/" + imageName
+	} else {
+		imageName = "docker.io/library/" + imageName
+	}
+
+	console.Log("Image name: ", imageName)
+	reader, err := apiClient.ImagePull(ctx, imageName, image.PullOptions{
+		RegistryAuth: "TODO2", //TODO: The registry auth must be there, but the value does not matter
+	})
 	if err != nil {
-		console.Error(err)
+		fmt.Println(err)
+		return nil, err
 	}
 	defer reader.Close()
+	io.Copy(os.Stdout, reader)
 
 	networkName := service.Network.GetName()
 	var networkConfig *network.NetworkingConfig
@@ -152,22 +228,18 @@ func CreateContainerFromService(service models.Service) string {
 	)
 
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
+		return nil, err
 	}
 
 	StartContainer(createdContainer.ID)
 
-	return createdContainer.ID
+	return &createdContainer.ID, nil
 }
 
 func StartContainer(containerId string) {
+	apiClient := createDockerClient()
 	ctx := context.Background()
-
-	apiClient, err := client.NewClientWithOpts(client.FromEnv)
-	if err != nil {
-		panic(err)
-	}
-	defer apiClient.Close()
 
 	if err := apiClient.ContainerStart(ctx, containerId, container.StartOptions{}); err != nil {
 		panic(err)
@@ -175,13 +247,8 @@ func StartContainer(containerId string) {
 }
 
 func CreateNetwork(n models.Network) (*string, error) {
+	apiClient := createDockerClient()
 	ctx := context.Background()
-
-	apiClient, err := client.NewClientWithOpts(client.FromEnv)
-	if err != nil {
-		panic(err)
-	}
-	defer apiClient.Close()
 
 	if n.GetName() == nil {
 		return nil, errors.New("no network name specified")
@@ -198,13 +265,8 @@ func CreateNetwork(n models.Network) (*string, error) {
 }
 
 func ListNetworks() (*[]network.Inspect, error) {
+	apiClient := createDockerClient()
 	ctx := context.Background()
-
-	apiClient, err := client.NewClientWithOpts(client.FromEnv)
-	if err != nil {
-		panic(err)
-	}
-	defer apiClient.Close()
 
 	response, err := apiClient.NetworkList(ctx, network.ListOptions{})
 	if err != nil {

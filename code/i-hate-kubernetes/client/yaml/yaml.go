@@ -2,6 +2,7 @@ package yaml
 
 import (
 	"os"
+	"path/filepath"
 
 	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/console"
 	external_models "github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/models/external-models"
@@ -13,6 +14,7 @@ func ReadFile(file string) models.Project {
 	data, err := os.ReadFile(file)
 	if err != nil {
 		console.Error("error: %v", err)
+		panic("Unable to read file ")
 	}
 
 	//TODO: Set default values
@@ -23,7 +25,11 @@ func ReadFile(file string) models.Project {
 		console.Error("error: %v", err2)
 	}
 	project.InsertDefaults()
-	parsedProject := models.ParseProject(project)
+
+	cleanPath := filepath.Clean(file)
+	firstDir, _ := filepath.Split(cleanPath)
+
+	parsedProject := models.ParseProject(project, firstDir)
 
 	//TODO: Validate the file, check that the project is there, etc.
 	return parsedProject

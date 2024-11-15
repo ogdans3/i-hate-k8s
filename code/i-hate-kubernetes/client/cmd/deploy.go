@@ -23,25 +23,19 @@ to quickly create a Cobra application.`,
 	Run: runDeploy,
 }
 
+var file string
+
 func init() {
+	deployCmd.Flags().StringVarP(&file, "file", "f", "", "Specify the project file to use")
 	rootCmd.AddCommand(deployCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// deployCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// deployCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-	deployCmd.Flags().StringP("file", "f", "", "Specify the project file to use")
 }
 
 func runDeploy(cmd *cobra.Command, args []string) {
 	pwd, _ := os.Getwd()
-	console.Log(args)
-	project := yaml.ReadFile(pwd + "/../examples/hello-world-dns-routing.yml")
+	console.Log(pwd)
+	console.Log(pwd + "/../" + file)
+	project := yaml.ReadFile(pwd + "/../" + file)
+	console.Log(project)
 
 	c := client.CreateClient()
 	c.AddProject(project)

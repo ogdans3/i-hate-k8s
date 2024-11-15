@@ -8,34 +8,58 @@ import (
 	models "github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/models/internal-models"
 )
 
+func GetDistinctActions(actions []Action) []Action {
+	if len(actions) == 0 {
+		return actions
+	}
+	result := []Action{actions[0]}
+
+	for _, action := range actions {
+		seen := false
+		for _, seenAction := range result {
+			if action.Equals(seenAction) {
+				seen = true
+				break
+			}
+		}
+		if !seen {
+			result = append(result, action)
+		}
+	}
+
+	return result
+}
+
 type Action interface {
 	Run() error
 	Update(clientState *clientState.ClientState) error
+	Equals(action Action) bool
 }
 
 type DeployContainerForService struct {
 	Node    *models.Node
-	Service models.Service
+	Service *models.Service
+	Project *models.Project
 }
 
 type RestartContainer struct {
-	Node      models.Node
-	Container engine_models.Container
+	Node      *models.Node
+	Container *engine_models.Container
 }
 
 type RemoveContainer struct {
-	Node      models.Node
-	Container engine_models.Container
+	Node      *models.Node
+	Container *engine_models.Container
 }
 
 type UpdateLoadbalancer struct {
-	Node                 models.Node
-	Container            engine_models.Container
-	NetworkConfiguration models.LoadbalancerNetworkConfiguration
+	Node                 *models.Node
+	Container            *engine_models.Container
+	NetworkConfiguration *models.LoadbalancerNetworkConfiguration
 }
 
 type CreateNetwork struct {
-	Node      models.Node     //Which node to create the network on
+	Node      *models.Node    //Which node to create the network on
 	Service   *models.Service //Which service is connected to this network
 	NetworkId *string         //Returned from the engine daemon after the network has been created
 }
@@ -43,23 +67,31 @@ type CreateNetwork struct {
 type DeployNewNode struct {
 }
 
-func CreateDeployContainerForService(service models.Service) *DeployContainerForService {
+func CreateDeployContainerForService(service *models.Service, project *models.Project) *DeployContainerForService {
 	return &DeployContainerForService{
 		Service: service,
+		Project: project,
 	}
 }
 
-func CreateRestartContainer(container engine_models.Container, node models.Node) *RestartContainer {
+func CreateRestartContainer(container *engine_models.Container, node *models.Node) *RestartContainer {
 	return &RestartContainer{
 		Container: container,
 		Node:      node,
 	}
 }
 
+func (action *DeployNewNode) CreateNetwork(clientState *clientState.ClientState) error {
+	return nil
+}
+
 func (action *DeployContainerForService) Run() error {
 	console.Log("Deploy container", action.Service.Id)
-	docker.CreateContainerFromService(action.Service)
-	return nil
+	if action.Service.Build {
+		docker.BuildService(*action.Service, *action.Project)
+	}
+	_, err := docker.CreateContainerFromService(*action.Service, action.Project)
+	return err
 }
 
 func (action *RestartContainer) Run() error {
@@ -87,7 +119,7 @@ func (action *CreateNetwork) Run() error {
 
 func (action *UpdateLoadbalancer) Run() error {
 	console.Log("Update loadbalancer", action.Container.Id)
-	err := docker.AddNewNginxConfigurationToContainer(action.NetworkConfiguration.ConfigurationToNginxFile(), action.Container)
+	err := docker.AddNewNginxConfigurationToContainer(action.NetworkConfiguration.ConfigurationToNginxFile(), *action.Container)
 	return err
 }
 
@@ -107,12 +139,8 @@ func (action *DeployNewNode) Update(clientState *clientState.ClientState) error 
 	return nil
 }
 
-func (action *DeployNewNode) CreateNetwork(clientState *clientState.ClientState) error {
-	return nil
-}
-
 func (action *UpdateLoadbalancer) Update(clientState *clientState.ClientState) error {
-	clientState.NetworkConfiguration = action.NetworkConfiguration
+	clientState.NetworkConfiguration = *action.NetworkConfiguration
 	return nil
 }
 
@@ -128,4 +156,64 @@ func (action *CreateNetwork) Update(clientState *clientState.ClientState) error 
 	}
 	clientState.EngineNetworkToService[*action.Service.Network.GetName()] = append(clientState.EngineNetworkToService[*action.Service.Network.GetName()], *action.Service)
 	return nil
+}
+
+func (action *DeployContainerForService) Equals(otherAction Action) bool {
+	return false
+	/*
+		other, ok := otherAction.(*DeployContainerForService)
+		if !ok {
+			return false
+		}
+
+		return action.Node == other.Node &&
+			action.Service == other.Service &&
+			action.Project == other.Project
+	*/
+}
+
+func (action *RestartContainer) Equals(otherAction Action) bool {
+	other, ok := otherAction.(*RestartContainer)
+	if !ok {
+		return false
+	}
+
+	return action.Node == other.Node &&
+		action.Container == other.Container
+}
+
+func (action *RemoveContainer) Equals(otherAction Action) bool {
+	other, ok := otherAction.(*RemoveContainer)
+	if !ok {
+		return false
+	}
+
+	return action.Node == other.Node &&
+		action.Container == other.Container
+}
+
+func (action *DeployNewNode) Equals(otherAction *DeployNewNode) bool {
+	return true
+}
+
+func (action *UpdateLoadbalancer) Equals(otherAction Action) bool {
+	other, ok := otherAction.(*UpdateLoadbalancer)
+	if !ok {
+		return false
+	}
+
+	return action.Node == other.Node &&
+		action.Container == other.Container &&
+		action.NetworkConfiguration == other.NetworkConfiguration
+}
+
+func (action *CreateNetwork) Equals(otherAction Action) bool {
+	other, ok := otherAction.(*CreateNetwork)
+	if !ok {
+		return false
+	}
+
+	return action.Node == other.Node &&
+		action.Service == other.Service &&
+		action.NetworkId == other.NetworkId
 }

@@ -14,7 +14,7 @@ type LoadBalancer struct {
 	Service *Service   //The service instance of the load balancer
 }
 
-func ParseLoadBalancer(loadbalancer bool, projectId string) *LoadBalancer {
+func ParseLoadBalancer(loadbalancer bool, project Project) *LoadBalancer {
 	//TODO: Fix hardcoding
 	return &LoadBalancer{
 		Type: nginx,
@@ -29,6 +29,6 @@ func ParseLoadBalancer(loadbalancer bool, projectId string) *LoadBalancer {
 			},
 			Https: true,
 			Www:   true,
-		}, projectId),
+		}, project),
 	}
 }

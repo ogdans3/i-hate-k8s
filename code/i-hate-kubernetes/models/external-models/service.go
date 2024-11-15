@@ -8,16 +8,18 @@ import (
 type Service struct {
 	ServiceName   string
 	Image         string
-	Build         string
+	Build         bool //True if we should build this service using docker build. cicd must also be true
 	Dev           string
 	Watch         string
 	ContainerName string `yaml:"container_name"`
 	FullName      string `yaml:"full_name"`
+	Pwd           string
 
 	Www       bool
 	Https     bool
 	Ports     []string
 	Autoscale Autoscale
+	Probes    *Probes
 }
 
 func (service *Service) InsertDefaults(serviceName string) {

@@ -41,7 +41,7 @@ func runCreateDockerFileCmd(cmd *cobra.Command, args []string) {
 
 	docker.ListAllContainers()
 	for _, service := range project.Services {
-		docker.CreateContainerFromService(*service)
+		docker.CreateContainerFromService(*service, &project)
 	}
 	docker.ListAllContainers()
 }

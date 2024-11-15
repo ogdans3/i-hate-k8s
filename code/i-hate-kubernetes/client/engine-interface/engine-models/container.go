@@ -21,3 +21,7 @@ type Network struct {
 	Id   string
 	Name string
 }
+
+func (container *Container) GetIp() *string {
+	return container.Ip
+}
