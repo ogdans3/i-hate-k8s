@@ -90,7 +90,6 @@ func (action *CicdUpdateIHateKubernetes) Run() (ActionRunResult, error) {
 	if action.Cicd.Directory != "" {
 		cmd.Dir = action.Cicd.Directory
 	}
-	console.Log("Directory: ", action.Cicd.Directory)
 
 	output, err = cmd.CombinedOutput()
 	if err != nil {
@@ -98,20 +97,15 @@ func (action *CicdUpdateIHateKubernetes) Run() (ActionRunResult, error) {
 	}
 	console.InfoLog.Info(string(output))
 
-	// Get the current program's path
-	executable, err := os.Executable()
-	if err != nil {
-		console.InfoLog.Error("Error getting executable path:", err)
-		return ActionRunResult{IsDone: true}, err
-	}
-
 	// Get the current program's arguments
 	args := os.Args
 
 	// Restart the program with the same arguments
-	cmd = exec.Command(executable, args[1:]...) // Exclude the program name from args
-	cmd.Dir = "."                               // Set the working directory, you can modify it if needed
-	cmd.Env = os.Environ()                      // Retain the environment variables
+	cmd = exec.Command("./i-hate-kubernetes", args[1:]...) // Exclude the program name from args
+	if action.Cicd.Directory != "" {
+		cmd.Dir = action.Cicd.Directory
+	}
+	cmd.Env = os.Environ() // Retain the environment variables
 
 	// To detach the new process, you can set the SysProcAttr
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}

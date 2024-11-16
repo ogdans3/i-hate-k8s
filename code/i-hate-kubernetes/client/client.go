@@ -75,7 +75,7 @@ func (client *Client) Loop() {
 	i := 0
 	for {
 		for s := 0; s < int(iterations); s++ {
-			info := fmt.Sprintf("Waiting for something to happen [GOR: %d] [MEM: %s]", procStats.Goroutines, procStats.MemoryPretty)
+			info := fmt.Sprintf("Waiting for something to happen [%d] [GOR: %d] [MEM: %s]", procStats.Pid, procStats.Goroutines, procStats.MemoryPretty)
 			if procStats.CpuUsage != nil {
 				info = fmt.Sprintf("%s [CPU: %s%%]", info, procStats.CpuUsagePercentage)
 			}

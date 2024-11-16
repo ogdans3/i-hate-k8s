@@ -13,6 +13,7 @@ type Stat struct {
 	CpuUsage           *float64
 	CpuUsagePercentage string
 	Goroutines         int
+	Pid                int
 }
 
 func GetProcessStats(pid int, procStats *Stat) {
@@ -20,6 +21,7 @@ func GetProcessStats(pid int, procStats *Stat) {
 	runtime.ReadMemStats(&mem)
 	cpuUsage := GetCpu(pid)
 
+	procStats.Pid = pid
 	procStats.Goroutines = runtime.NumGoroutine()
 
 	procStats.Memory = mem.Alloc
