@@ -51,7 +51,7 @@ func ParseAutoupdate(autoupdate bool, wd string) *Cicd {
 	return &Cicd{
 		Url:                     validUrls[0],
 		Branch:                  "master",
-		Directory:               wd,
+		Directory:               "",
 		UpdateContainers:        true,
 		UpdateContainerStrategy: Gracefully,
 	}

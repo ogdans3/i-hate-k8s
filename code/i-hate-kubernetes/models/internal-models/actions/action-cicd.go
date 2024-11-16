@@ -87,17 +87,10 @@ func (action *CicdUpdateIHateKubernetes) Run() (ActionRunResult, error) {
 	console.InfoLog.Info(string(output))
 
 	cmd = exec.Command("go", "build")
-	cmd.Dir = action.Cicd.Directory
-
-	output, err = cmd.CombinedOutput()
-	if err != nil {
-		console.InfoLog.Error("Error building application:", err)
-		return ActionRunResult{IsDone: true}, err
+	if action.Cicd.Directory != "" {
+		cmd.Dir = action.Cicd.Directory
 	}
-	console.InfoLog.Info(string(output))
-
-	cmd = exec.Command("go", "build")
-	cmd.Dir = action.Cicd.Directory
+	console.Log("Directory: ", action.Cicd.Directory)
 
 	output, err = cmd.CombinedOutput()
 	if err != nil {

@@ -47,15 +47,28 @@ go test -p 1 --parallel 1 ./test/e2e_test/
 
 # Test webhook
 
-Run webhook short example for github pushes
+### Run webhook short example for github pushes
 ```bash
 curl -X POST -H "Content-Type: application/json" -d '{
-  "ref": "refs/heads/feature/new-feature",
+  "ref": "refs/heads/master",
   "repository": {
     "html_url": "https://github.com/user/example-repo.git",
     "git_url": "git://github.com/user/example-repo.git",
     "ssh_url": "git@github.com:user/example-repo.git",
     "clone_url": "https://github.com/user/example-repo.git"
+  }
+}' http://localhost:6444/webhook/github
+```
+
+### Run webhook short example for github pushes to ihk
+```bash
+curl -X POST -H "Content-Type: application/json" -d '{
+  "ref": "refs/heads/master",
+  "repository": {
+    "html_url": "https://github.com/ogdans3/i-hate-k8s.git",
+    "git_url": "git://github.com/ogdans3/i-hate-k8s.git",
+    "ssh_url": "git@github.com:ogdans3/i-hate-k8s.git",
+    "clone_url": "https://github.com/ogdans3/i-hate-k8s.git"
   }
 }' http://localhost:6444/webhook/github
 ```

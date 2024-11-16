@@ -106,6 +106,18 @@ func (client *Client) AddCicdJobSpecFromWebhook(payload webhooks.WebhookPayload)
 	branch := strings.Join(refParts[2:], "/")
 
 	for _, project := range client.state.Projects {
+		if project.Autoupdate != nil {
+			if branch != project.Autoupdate.Branch {
+				continue
+			}
+			if project.Autoupdate.Url == payload.Repository.GitUrl ||
+				project.Autoupdate.Url == payload.Repository.HtmlUrl ||
+				project.Autoupdate.Url == payload.Repository.CloneUrl ||
+				project.Autoupdate.Url == payload.Repository.SshUrl {
+				client.state.CicdJobs = append(client.state.CicdJobs, *project.Autoupdate)
+				return
+			}
+		}
 		for _, cicdSpec := range project.Cicd {
 			if branch != cicdSpec.Branch {
 				continue
@@ -207,6 +219,8 @@ func (client *Client) CalculateActions(actions *[]model_actions.Action) {
 		//TODO: Seems inefficient to loop the projects for these jobs just to separate between different type of jobs.
 		//Add actions for cicd jobs (e.g. build new image for container, update i-hate-kubernetes)
 		for _, cicdJob := range client.state.CicdJobs {
+			console.Log(project.Autoupdate)
+			console.Log(cicdJob.Id, project.Autoupdate.Id)
 			if project.Autoupdate != nil && cicdJob.Id == project.Autoupdate.Id {
 				*actions = append(*actions, model_actions.CreateCicdUpdateIHateKubernetes(
 					&client.state.Node,

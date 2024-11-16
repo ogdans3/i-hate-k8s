@@ -29,6 +29,12 @@ func ReadFile(file string) models.Project {
 	cleanPath := filepath.Clean(file)
 	firstDir, _ := filepath.Split(cleanPath)
 
+	_, err = os.Getwd()
+	if err != nil {
+		console.InfoLog.Error(err)
+		panic(err)
+	}
+
 	parsedProject := models.ParseProject(project, firstDir)
 
 	//TODO: Validate the file, check that the project is there, etc.
