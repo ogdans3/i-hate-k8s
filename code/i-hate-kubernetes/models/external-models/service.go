@@ -15,12 +15,12 @@ type Service struct {
 	Id            string
 	ServiceName   string
 	Image         string
-	Build         bool //True if we should build this service using docker build. cicd must also be true
+	Build         bool   //True if we should build this service using docker build. cicd must also be true
+	Directory     string //Relative directory to the project to use for docker contexts, also used to default cicd directory if not specified in cicd section
 	Dev           string
 	Watch         string
 	ContainerName string `yaml:"container_name"`
 	FullName      string `yaml:"full_name"`
-	Pwd           string
 
 	Www       bool
 	Https     bool

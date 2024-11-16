@@ -190,7 +190,7 @@ func BuildService(service models.Service, project models.Project) {
 	tw := tar.NewWriter(&buf)
 	defer tw.Close()
 
-	tarContext, err := archive.Tar(filepath.Join(service.Pwd), 0)
+	tarContext, err := archive.Tar(filepath.Join(service.Directory), 0)
 	if err != nil {
 		log.Fatalf("Error creating tar context: %v", err)
 	}
