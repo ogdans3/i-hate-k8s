@@ -6,9 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"log"
-	"os"
 	"path/filepath"
 	"sync"
 
@@ -27,25 +25,29 @@ import (
 func createDockerClient() *client.Client {
 	apiClient, err := client.NewClientWithOpts(client.FromEnv)
 	if err != nil {
+		//TODO: Try a few times before erroring?
 		panic(err)
 	}
-	defer apiClient.Close()
 	return apiClient
 }
 
-func ListAllContainers() []types.Container {
+func ListAllContainers() ([]types.Container, error) {
 	apiClient := createDockerClient()
+	defer apiClient.Close()
 
 	containers, err := apiClient.ContainerList(context.Background(), container.ListOptions{All: true})
 	if err != nil {
-		panic(err)
+		//TODO: Try a few times before erroring?
+		console.Error("Unable to list containers", err)
+		return nil, err
 	}
 
-	return containers
+	return containers, nil
 }
 
 func StopAllContainers() {
 	apiClient := createDockerClient()
+	defer apiClient.Close()
 
 	ctx := context.Background()
 	containers, err := apiClient.ContainerList(ctx, container.ListOptions{All: true})
@@ -73,6 +75,7 @@ func StopAllContainers() {
 
 func StopAndRemoveAllContainersAndNetworks() {
 	apiClient := createDockerClient()
+	defer apiClient.Close()
 
 	ctx := context.Background()
 
@@ -134,6 +137,7 @@ func StopAndRemoveAllContainersAndNetworks() {
 
 func BuildService(service models.Service, project models.Project) {
 	apiClient := createDockerClient()
+	defer apiClient.Close()
 	ctx := context.Background()
 
 	var buf bytes.Buffer
@@ -164,7 +168,7 @@ func BuildService(service models.Service, project models.Project) {
 		console.Fatal(err)
 	}
 	defer response.Body.Close()
-	io.Copy(os.Stdout, response.Body)
+	console.Copy(response.Body)
 
 	imagePushResponse, err := apiClient.ImagePush(ctx, imageTag, image.PushOptions{
 		All:          true,
@@ -175,12 +179,13 @@ func BuildService(service models.Service, project models.Project) {
 		console.Fatal(err)
 	}
 	defer imagePushResponse.Close()
-	io.Copy(os.Stdout, imagePushResponse)
+	console.Copy(imagePushResponse)
 	console.Log("Image built and pushed")
 }
 
 func CreateContainerFromService(service models.Service, project *models.Project) (*string, error) {
 	apiClient := createDockerClient()
+	defer apiClient.Close()
 	ctx := context.Background()
 
 	imageName := service.Image
@@ -195,6 +200,7 @@ func CreateContainerFromService(service models.Service, project *models.Project)
 
 	console.Log("Image name: ", imageName)
 	reader, err := apiClient.ImagePull(ctx, imageName, image.PullOptions{
+		All:          false,   //Very specifically set to false! If this is true we start pulling every image in the world
 		RegistryAuth: "TODO2", //TODO: The registry auth must be there, but the value does not matter
 	})
 	if err != nil {
@@ -202,7 +208,7 @@ func CreateContainerFromService(service models.Service, project *models.Project)
 		return nil, err
 	}
 	defer reader.Close()
-	io.Copy(os.Stdout, reader)
+	console.Copy(reader)
 
 	networkName := service.Network.GetName()
 	var networkConfig *network.NetworkingConfig
@@ -232,22 +238,26 @@ func CreateContainerFromService(service models.Service, project *models.Project)
 		return nil, err
 	}
 
-	StartContainer(createdContainer.ID)
+	err = StartContainer(createdContainer.ID)
 
-	return &createdContainer.ID, nil
+	return &createdContainer.ID, err
 }
 
-func StartContainer(containerId string) {
+func StartContainer(containerId string) error {
 	apiClient := createDockerClient()
+	defer apiClient.Close()
 	ctx := context.Background()
 
 	if err := apiClient.ContainerStart(ctx, containerId, container.StartOptions{}); err != nil {
-		panic(err)
+		console.Error("Unable to start container")
+		return err
 	}
+	return nil
 }
 
 func CreateNetwork(n models.Network) (*string, error) {
 	apiClient := createDockerClient()
+	defer apiClient.Close()
 	ctx := context.Background()
 
 	if n.GetName() == nil {
@@ -258,22 +268,25 @@ func CreateNetwork(n models.Network) (*string, error) {
 		Driver: "bridge", //TODO isnt this wrong. Shouldnt these networks be isolated from the internet?
 	})
 	if err != nil {
-		panic(err)
+		console.Error("Unable to create network")
+		return nil, err
 	}
 
 	return &networkCreateResponse.ID, nil
 }
 
-func ListNetworks() (*[]network.Inspect, error) {
+func ListNetworks() ([]network.Inspect, error) {
 	apiClient := createDockerClient()
+	defer apiClient.Close()
 	ctx := context.Background()
 
 	response, err := apiClient.NetworkList(ctx, network.ListOptions{})
 	if err != nil {
+		console.Error("Unable to list networks")
 		return nil, err
 	}
 
-	return &response, nil
+	return response, nil
 }
 
 func portToPortBinding(ports []models.Port) map[nat.Port][]nat.PortBinding {

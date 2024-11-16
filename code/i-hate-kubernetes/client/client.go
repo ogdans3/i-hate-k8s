@@ -1,6 +1,10 @@
 package client
 
 import (
+	"fmt"
+	"math"
+	"os"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -8,6 +12,7 @@ import (
 	clientState "github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/client/client-state"
 	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/client/engine-interface/docker"
 	engine_models "github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/client/engine-interface/engine-models"
+	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/client/stats"
 	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/console"
 	models "github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/models/internal-models"
 	model_actions "github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/models/internal-models/actions"
@@ -35,18 +40,36 @@ func CreateClient() Client {
 			},
 		},
 	}
-	client.Update()
 	return client
 }
 
+const LOOP_DELAY = 1000
+const PRINT_LOOP_DELAY = 100
+
 func (client *Client) Loop() {
+	pid := os.Getpid()
+	var cpuUsage *float64
+	var mem runtime.MemStats
+	var iterations = math.Floor(LOOP_DELAY / PRINT_LOOP_DELAY)
 	i := 0
 	for {
-		console.Spinner("Waiting for something to happen")
+		for s := 0; s < int(iterations); s++ {
+			info := fmt.Sprintf("Waiting for something to happen. [%d] [MEM: %s]", runtime.NumGoroutine(), console.PrettyMemoryAllocation(mem.Alloc))
+			if cpuUsage != nil {
+				info = fmt.Sprintf("%s [CPU: %.2f%%]", info, *cpuUsage)
+			}
+			console.Spinner(info)
+			time.Sleep(PRINT_LOOP_DELAY * time.Millisecond)
+		}
 		client.Update()
-		client.MoveTowardsDesiredState()
-		time.Sleep(200 * time.Millisecond)
+		//client.MoveTowardsDesiredState()
 		i++
+
+		if console.ShouldLog(console.DEBUG) {
+			//Read some stats for fun
+			runtime.ReadMemStats(&mem)
+			cpuUsage = stats.GetCpu(pid)
+		}
 	}
 }
 
@@ -279,13 +302,17 @@ func addActionsForService(c *Client, node models.Node, service *models.Service, 
 	if containersFound < int(service.Autoscale.Initial) {
 		for i := containersFound; i < int(service.Autoscale.Initial); i++ {
 			actions = append(actions, model_actions.CreateDeployContainerForService(service, &project))
+			console.Log("Add action to create deploy container: ", service.ServiceName)
 		}
 	}
 	return actions
 }
 
 func (client *Client) Update() {
-	containers := docker.ListAllContainers()
+	containers, err := docker.ListAllContainers()
+	if err != nil {
+		return
+	}
 
 	client.state.Containers = make([]engine_models.Container, 0) //TODO: Dont reset here, wasted resources
 	for _, ctr := range containers {
@@ -357,7 +384,7 @@ func (client *Client) Update() {
 	}
 
 	client.state.Networks = make([]engine_models.Network, 0) //TODO: Dont reset here, wasted resources
-	for _, networkSummary := range *networkSummaries {
+	for _, networkSummary := range networkSummaries {
 		client.state.Networks = append(client.state.Networks, engine_models.Network{
 			Id:   networkSummary.ID,
 			Name: networkSummary.Name,

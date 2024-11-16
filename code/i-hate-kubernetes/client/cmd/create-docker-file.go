@@ -39,9 +39,7 @@ func runCreateDockerFileCmd(cmd *cobra.Command, args []string) {
 	pwd, _ := os.Getwd()
 	project := yaml.ReadFile(pwd + "/../examples/hello-world.yml")
 
-	docker.ListAllContainers()
 	for _, service := range project.Services {
 		docker.CreateContainerFromService(*service, &project)
 	}
-	docker.ListAllContainers()
 }

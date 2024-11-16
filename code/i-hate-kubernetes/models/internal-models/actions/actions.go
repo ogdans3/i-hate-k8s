@@ -12,7 +12,7 @@ func GetDistinctActions(actions []Action) []Action {
 	if len(actions) == 0 {
 		return actions
 	}
-	result := []Action{actions[0]}
+	result := []Action{}
 
 	for _, action := range actions {
 		seen := false

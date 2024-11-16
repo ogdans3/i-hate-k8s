@@ -2,6 +2,8 @@ package console
 
 import (
 	"fmt"
+	"io"
+	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -12,17 +14,22 @@ const (
 	moveCursorToStartOfLine          = "\r"
 	moveCursorToEndOfLine            = "\033[999C"
 	clearConsole                     = "\033[H\033[2J"
+	clearLine                        = "\033[2K"
 )
 
 var lastPrintWasASpinner = false
 var spinnerCount int = 0 //Overflow is fine
-var indicators = []string{"-", "\\", "|", "/"}
+// var indicators = []string{"-", "\\", "|", "/"}
+var indicators = []string{"⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷"}
 
 func Spinner(arguments ...any) {
+	if !ShouldLog(INFO) {
+		return
+	}
 	spinnerCount++
 	controlCharacters := ""
 	if lastPrintWasASpinner {
-		controlCharacters = moveCursorOneLineUpInTheTerminal + moveCursorToStartOfLine
+		controlCharacters = moveCursorOneLineUpInTheTerminal + moveCursorToStartOfLine + clearLine
 	}
 	nextIndicator := indicators[spinnerCount%len(indicators)]
 
@@ -34,12 +41,24 @@ func Spinner(arguments ...any) {
 	fmt.Print("\r\n")
 }
 
+func PrettyMemoryAllocation(memoryInBytes uint64) string {
+	if memoryInBytes >= 1<<20 { // 1 MB or more
+		return fmt.Sprintf("%.2f MB", float64(memoryInBytes)/(1<<20))
+	} else if memoryInBytes >= 1<<10 { // 1 KB or more
+		return fmt.Sprintf("%.2f KB", float64(memoryInBytes)/(1<<10))
+	} else {
+		return fmt.Sprintf("%d bytes", memoryInBytes)
+	}
+}
+
 type commonArguments struct {
 	Types bool
 }
 
 func Clear() {
-	fmt.Print(clearConsole)
+	if ShouldLog(INFO) {
+		fmt.Print(clearConsole)
+	}
 }
 
 type GoIsDumb struct{}
@@ -51,35 +70,73 @@ func (GoIsDumb) Log(arguments ...any) {
 
 var Types = GoIsDumb{}
 
+type LogLevel int
+
+const (
+	TRACE LogLevel = iota
+	DEBUG
+	INFO
+	WARNING
+	ERROR
+)
+
+var logLevel = INFO
+
+func SetLogLevel(ll LogLevel) {
+	logLevel = ll
+}
+
+func ShouldLog(ll LogLevel) bool {
+	return ll >= logLevel
+}
+
+func Copy(src io.Reader) {
+	if ShouldLog(DEBUG) {
+		io.Copy(os.Stdout, src)
+	} else {
+		//TODO: Wtf, images are not pulled without doing this?
+		io.Copy(io.Discard, src)
+	}
+}
+
 func Log(arguments ...any) {
-	lastPrintWasASpinner = false
-	common(commonArguments{Types: false}, arguments...)
+	Info(arguments...)
 }
 
 func Info(arguments ...any) {
-	lastPrintWasASpinner = false
-	common(commonArguments{Types: false}, arguments...)
+	if ShouldLog(INFO) {
+		lastPrintWasASpinner = false
+		common(commonArguments{Types: false}, arguments...)
+	}
 }
 
 func Debug(arguments ...any) {
-	lastPrintWasASpinner = false
-	common(commonArguments{Types: false}, arguments...)
+	if ShouldLog(DEBUG) {
+		lastPrintWasASpinner = false
+		common(commonArguments{Types: false}, arguments...)
+	}
 }
 
 func Trace(arguments ...any) {
-	lastPrintWasASpinner = false
-	common(commonArguments{Types: false}, arguments...)
+	if ShouldLog(TRACE) {
+		lastPrintWasASpinner = false
+		common(commonArguments{Types: false}, arguments...)
+	}
 }
 
 func Error(arguments ...any) {
-	lastPrintWasASpinner = false
-	common(commonArguments{Types: false}, arguments...)
+	if ShouldLog(ERROR) {
+		lastPrintWasASpinner = false
+		common(commonArguments{Types: false}, arguments...)
+	}
 }
 
 func Fatal(arguments ...any) {
-	lastPrintWasASpinner = false
-	common(commonArguments{Types: false}, arguments...)
-	panic("Fatal")
+	if ShouldLog(ERROR) {
+		lastPrintWasASpinner = false
+		common(commonArguments{Types: false}, arguments...)
+		panic("Fatal")
+	}
 }
 
 func common(settings commonArguments, arguments ...any) {
@@ -182,7 +239,7 @@ func examiner(settings *commonArguments, str *strings.Builder, depth int, v refl
 		}
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		str.WriteString(strconv.Itoa(int(v.Int())))
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
 		str.WriteString(strconv.FormatUint(v.Uint(), 10))
 	case reflect.Float32, reflect.Float64:
 		str.WriteString(strconv.FormatFloat(v.Float(), 'f', -1, 64))
