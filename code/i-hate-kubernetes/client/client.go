@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math"
 	"os"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -48,28 +47,26 @@ const PRINT_LOOP_DELAY = 100
 
 func (client *Client) Loop() {
 	pid := os.Getpid()
-	var cpuUsage *float64
-	var mem runtime.MemStats
+	procStats := &stats.Stat{}
 	var iterations = math.Floor(LOOP_DELAY / PRINT_LOOP_DELAY)
+
 	i := 0
 	for {
 		for s := 0; s < int(iterations); s++ {
-			info := fmt.Sprintf("Waiting for something to happen. [%d] [MEM: %s]", runtime.NumGoroutine(), console.PrettyMemoryAllocation(mem.Alloc))
-			if cpuUsage != nil {
-				info = fmt.Sprintf("%s [CPU: %.2f%%]", info, *cpuUsage)
+			info := fmt.Sprintf("Waiting for something to happen [GOR: %d] [MEM: %s]", procStats.Goroutines, procStats.MemoryPretty)
+			if procStats.CpuUsage != nil {
+				info = fmt.Sprintf("%s [CPU: %s%%]", info, procStats.CpuUsagePercentage)
 			}
 			console.Spinner(info)
 			time.Sleep(PRINT_LOOP_DELAY * time.Millisecond)
 		}
 		client.Update()
-		//client.MoveTowardsDesiredState()
+		client.MoveTowardsDesiredState()
 		i++
 
-		if console.ShouldLog(console.DEBUG) {
-			//Read some stats for fun
-			runtime.ReadMemStats(&mem)
-			cpuUsage = stats.GetCpu(pid)
-		}
+		//Read some stats for fun
+		stats.GetProcessStats(pid, procStats)
+		console.StatLog.Info(procStats)
 	}
 }
 
@@ -222,7 +219,7 @@ func addLoadbalancerActions(
 		return actions
 	}
 
-	console.Log(newConfig.ConfigurationToNginxFile())
+	console.InfoLog.Debug(newConfig.ConfigurationToNginxFile())
 	actions = append(actions, &model_actions.UpdateLoadbalancer{
 		Node:                 &node,
 		Container:            loadBalancerContainer,

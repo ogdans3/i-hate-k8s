@@ -34,10 +34,7 @@ func init() {
 
 func runDeploy(cmd *cobra.Command, args []string) {
 	pwd, _ := os.Getwd()
-	console.Log(pwd)
-	console.Log(pwd + "/../" + file)
 	project := yaml.ReadFile(pwd + "/../" + file)
-	console.Log(project)
 	if verbose {
 		console.SetLogLevel(console.DEBUG)
 	}
