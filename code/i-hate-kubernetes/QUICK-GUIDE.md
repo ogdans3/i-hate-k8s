@@ -34,8 +34,8 @@ i-have-a-job: #In general the same defaults as any service, but has a few extra 
 
 ```
 go run main.go deploy
-go run main.go deploy -f examples/hello-world-dns-routing.yml
-gow run main.go deploy -f examples/hello-world-dns-routing.yml
+go run main.go deploy -f ~/../examples/hello-world-dns-routing.yml
+gow run main.go deploy -f ~/../examples/hello-world-dns-routing.yml
 go run main.go stop
 ```
 

@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"os"
-
 	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/client"
 	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/client/yaml"
 	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/console"
@@ -27,14 +25,13 @@ var file string
 var verbose bool
 
 func init() {
-	deployCmd.Flags().StringVarP(&file, "file", "f", "", "Specify the project file to use")
+	deployCmd.Flags().StringVarP(&file, "file", "f", "", "Specify the project file to use, must be an absolute path")
 	deployCmd.Flags().BoolVar(&verbose, "verbose", false, "Should be run in verbose mode")
 	rootCmd.AddCommand(deployCmd)
 }
 
 func runDeploy(cmd *cobra.Command, args []string) {
-	pwd, _ := os.Getwd()
-	project := yaml.ReadFile(pwd + "/../" + file)
+	project := yaml.ReadFile(file)
 	if verbose {
 		console.SetLogLevel(console.DEBUG)
 	}
