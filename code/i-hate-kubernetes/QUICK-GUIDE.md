@@ -36,6 +36,7 @@ i-have-a-job: #In general the same defaults as any service, but has a few extra 
 go run main.go deploy
 go run main.go deploy -f ~/../examples/hello-world-dns-routing.yml
 gow run main.go deploy -f ~/../examples/hello-world-dns-routing.yml
+gow run main.go deploy --file ($env.PWD + "/test-projects/helloworld/hive.yml") --verbose
 go run main.go stop
 ```
 

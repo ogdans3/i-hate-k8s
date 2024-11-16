@@ -13,6 +13,7 @@ type DeployContainerForService struct {
 	Node    *models.Node
 	Service *models.Service
 	Project *models.Project
+	Id      string
 }
 
 type RestartContainer struct {
@@ -42,7 +43,7 @@ func CreateContainerImageUpdated(clientState *clientState.ClientState, node *mod
 	actions := make([]Action, 0)
 	for _, container := range containers {
 		actions = append(actions,
-			CreateDeployContainerForService(service, project),
+			CreateDeployContainerForService(container.Id, service, project),
 			&RemoveContainer{
 				Node:      node,
 				Container: &container,
@@ -61,8 +62,9 @@ func CreateContainerImageUpdated(clientState *clientState.ClientState, node *mod
 	}
 }
 
-func CreateDeployContainerForService(service *models.Service, project *models.Project) *DeployContainerForService {
+func CreateDeployContainerForService(id string, service *models.Service, project *models.Project) *DeployContainerForService {
 	return &DeployContainerForService{
+		Id:      id,
 		Service: service,
 		Project: project,
 	}
@@ -112,17 +114,12 @@ func (action *RemoveContainer) Update(actions *[]Action, clientState *clientStat
 }
 
 func (action *DeployContainerForService) Equals(otherAction Action) bool {
-	return false
-	/*
-		other, ok := otherAction.(*DeployContainerForService)
-		if !ok {
-			return false
-		}
+	other, ok := otherAction.(*DeployContainerForService)
+	if !ok {
+		return false
+	}
 
-		return action.Node == other.Node &&
-			action.Service == other.Service &&
-			action.Project == other.Project
-	*/
+	return action.Id == other.Id
 }
 
 func (action *RestartContainer) Equals(otherAction Action) bool {

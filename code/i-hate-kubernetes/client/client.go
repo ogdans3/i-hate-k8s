@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -140,12 +141,22 @@ func (client *Client) MoveTowardsDesiredState() {
 	var wg sync.WaitGroup
 	var mu sync.Mutex //TODO Will using a mutex here make it too slow?
 	for _, action := range client.actions {
+		//This action has failed too many times
+		if action.GetMetadata().Retries > 2 {
+			//Add it back to the queue, so that we dont create this action again
+			//TODO: Oooof though, memory leak is gonna happen here
+			remainingActions = append(remainingActions, action)
+			continue
+		}
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			actionRunResult, err := action.Run()
 			if err != nil {
+				action.GetMetadata().Retries++
 				console.Log(err)
+				//Add it back to the queue, so that we can retry it later
+				remainingActions = append(remainingActions, action)
 				return
 			}
 
@@ -265,7 +276,15 @@ func addLoadbalancerActions(
 	newConfig := models.LoadbalancerNetworkConfiguration{
 		ContainerIdOfLoadbalancerThatHasThisConfig: &loadBalancerContainer.Id,
 	}
-	for _, service := range services {
+
+	keys := make([]string, 0, len(services))
+	for key := range services {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	for _, key := range keys {
+		service := services[key]
 		upstreamBlock := models.Upstream{
 			Name:    service.ServiceName,
 			Servers: []models.UpstreamServer{},
@@ -300,12 +319,24 @@ func addLoadbalancerActions(
 			},
 		})
 	}
+	//TODO: Check properly instead of the string values. Make the order not matter
 	if newConfig.ConfigurationToNginxFile() == currentLoadbalancerNetworkConfiguration.ConfigurationToNginxFile() &&
 		currentLoadbalancerNetworkConfiguration.ContainerIdOfLoadbalancerThatHasThisConfig != nil &&
 		*currentLoadbalancerNetworkConfiguration.ContainerIdOfLoadbalancerThatHasThisConfig == loadBalancerContainer.Id {
 		return actions
 	}
 
+	console.InfoLog.Debug(
+		newConfig.ConfigurationToNginxFile() == currentLoadbalancerNetworkConfiguration.ConfigurationToNginxFile(),
+	)
+	console.InfoLog.Debug("First")
+	console.InfoLog.Debug(
+		newConfig.ConfigurationToNginxFile(),
+	)
+	console.InfoLog.Debug("Second")
+	console.InfoLog.Debug(
+		currentLoadbalancerNetworkConfiguration.ConfigurationToNginxFile(),
+	)
 	console.InfoLog.Debug(newConfig.ConfigurationToNginxFile())
 	actions = append(actions, &model_actions.UpdateLoadbalancer{
 		Node:                 &node,
@@ -372,7 +403,7 @@ func addActionsForService(c *Client, node models.Node, service *models.Service, 
 						}
 					}
 				case "paused":
-					actions = append(actions, model_actions.CreateDeployContainerForService(service, &project))
+					actions = append(actions, model_actions.CreateDeployContainerForService(service.Id, service, &project))
 				case "exited":
 					fallthrough
 				case "dead":
@@ -385,8 +416,7 @@ func addActionsForService(c *Client, node models.Node, service *models.Service, 
 	}
 	if containersFound < int(service.Autoscale.Initial) {
 		for i := containersFound; i < int(service.Autoscale.Initial); i++ {
-			actions = append(actions, model_actions.CreateDeployContainerForService(service, &project))
-			console.Log("Add action to create deploy container: ", service.ServiceName)
+			actions = append(actions, model_actions.CreateDeployContainerForService(service.Id+"-"+string(i), service, &project))
 		}
 	}
 	return actions

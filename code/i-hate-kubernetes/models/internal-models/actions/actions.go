@@ -46,9 +46,9 @@ type Action interface {
 	Run() (ActionRunResult, error)
 	Update(actions *[]Action, clientState *clientState.ClientState) (ActionUpdateResult, error)
 	Equals(action Action) bool
-	GetMetadata() ActionMetadata
+	GetMetadata() *ActionMetadata
 }
 
-func (action DefaultActionMetadata) GetMetadata() ActionMetadata {
-	return action.Metadata
+func (action *DefaultActionMetadata) GetMetadata() *ActionMetadata {
+	return &action.Metadata
 }
