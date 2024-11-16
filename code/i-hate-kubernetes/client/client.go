@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"os"
@@ -8,6 +9,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/client/api"
+	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/client/api/webhooks"
 	clientState "github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/client/client-state"
 	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/client/engine-interface/docker"
 	engine_models "github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/client/engine-interface/engine-models"
@@ -18,12 +21,28 @@ import (
 )
 
 type Client struct {
-	state clientState.ClientState
+	ctx      context.Context
+	state    clientState.ClientState
+	actions  []model_actions.Action
+	channels Channels
+	settings clientState.ClientSettings
+}
+
+type Channels struct {
+	webhookChannel chan webhooks.WebhookPayload
 }
 
 func CreateClient() Client {
 	console.Clear()
 	client := Client{
+		channels: Channels{
+			webhookChannel: make(chan webhooks.WebhookPayload),
+		},
+		ctx: context.Background(),
+		settings: clientState.ClientSettings{
+			ApiPort: "6444", //1 better than kubernetes (which is 6443)
+		},
+		actions: make([]model_actions.Action, 0),
 		state: clientState.ClientState{
 			Containers:             make([]engine_models.Container, 0),
 			Networks:               make([]engine_models.Network, 0),
@@ -31,6 +50,7 @@ func CreateClient() Client {
 			NetworkConfiguration:   models.LoadbalancerNetworkConfiguration{},
 			EngineNetworkToService: make(map[string][]models.Service, 0),
 			ContainerMetadata:      make(map[string]clientState.ContainerMetadata, 0),
+			CicdJobs:               make([]models.Cicd, 0),
 			Node: models.Node{
 				Ip:       "127.0.0.1",
 				Name:     "me",
@@ -46,6 +66,8 @@ const LOOP_DELAY = 1000
 const PRINT_LOOP_DELAY = 100
 
 func (client *Client) Loop() {
+	go api.StartApiServer(client.ctx, client.settings.ApiPort, client.channels.webhookChannel)
+
 	pid := os.Getpid()
 	procStats := &stats.Stat{}
 	var iterations = math.Floor(LOOP_DELAY / PRINT_LOOP_DELAY)
@@ -60,6 +82,15 @@ func (client *Client) Loop() {
 			console.Spinner(info)
 			time.Sleep(PRINT_LOOP_DELAY * time.Millisecond)
 		}
+
+		//Handle channel updates
+		select {
+		case payload := <-client.channels.webhookChannel:
+			console.InfoLog.Info("Received payload from handler: ", i, payload, "\n")
+			client.AddCicdJobSpecFromWebhook(payload)
+		default:
+		}
+
 		client.Update()
 		client.MoveTowardsDesiredState()
 		i++
@@ -70,31 +101,56 @@ func (client *Client) Loop() {
 	}
 }
 
+func (client *Client) AddCicdJobSpecFromWebhook(payload webhooks.WebhookPayload) {
+	refParts := strings.Split(payload.Ref, "/")
+	branch := strings.Join(refParts[2:], "/")
+
+	for _, project := range client.state.Projects {
+		for _, cicdSpec := range project.Cicd {
+			if branch != cicdSpec.Branch {
+				continue
+			}
+			if cicdSpec.Url == payload.Repository.GitUrl ||
+				cicdSpec.Url == payload.Repository.HtmlUrl ||
+				cicdSpec.Url == payload.Repository.CloneUrl ||
+				cicdSpec.Url == payload.Repository.SshUrl {
+				client.state.CicdJobs = append(client.state.CicdJobs, cicdSpec)
+				return
+			}
+		}
+	}
+}
+
 func (client *Client) MoveTowardsDesiredState() {
-	actions := client.CalculateActions()
-	actions = model_actions.GetDistinctActions(actions)
+	client.CalculateActions(&client.actions)
+	model_actions.GetDistinctActions(&client.actions)
+	remainingActions := make([]model_actions.Action, 0)
 	var wg sync.WaitGroup
 	var mu sync.Mutex //TODO Will using a mutex here make it too slow?
-	for _, action := range actions {
+	for _, action := range client.actions {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			err := action.Run()
+			actionRunResult, err := action.Run()
 			if err != nil {
 				console.Log(err)
 				return
 			}
+
 			mu.Lock()
-			action.Update(&client.state)
+			if actionRunResult.IsDone {
+				action.Update(&remainingActions, &client.state)
+			} else {
+				remainingActions = append(remainingActions, action)
+			}
 			mu.Unlock()
 		}()
 	}
 	wg.Wait()
+	client.actions = remainingActions
 }
 
-func (client *Client) CalculateActions() []model_actions.Action {
-	actions := make([]model_actions.Action, 0)
-
+func (client *Client) CalculateActions(actions *[]model_actions.Action) {
 	for _, project := range client.state.Projects {
 		//Add actions to create networks
 		for _, service := range project.Services {
@@ -109,7 +165,7 @@ func (client *Client) CalculateActions() []model_actions.Action {
 				}
 			}
 			if !foundNetworkForService {
-				actions = append(actions, &model_actions.CreateNetwork{
+				*actions = append(*actions, &model_actions.CreateNetwork{
 					Node:    &client.state.Node,
 					Service: service,
 				})
@@ -120,36 +176,53 @@ func (client *Client) CalculateActions() []model_actions.Action {
 		if project.Registry != nil {
 			actionsForThisService := addActionsForService(client, client.state.Node, project.Registry.Service, client.state.Containers, project)
 			if len(actionsForThisService) > 0 {
-				actions = append(actions, actionsForThisService...)
+				*actions = append(*actions, actionsForThisService...)
 				//The registry must be available for us to continue
-				return actions
+				return
 			} else if !isRegistryAvailable(client, client.state.Node, project.Registry.Service, client.state.Containers) {
 				//The registry must be available for us to continue
 				// We could be waiting for a probe, for example.
-				return actions
+				return
 			}
 		}
 
 		//Add actions for services (e.g. deploy new container, restart container)
 		for _, service := range project.Services {
 			actionsForThisService := addActionsForService(client, client.state.Node, service, client.state.Containers, project)
-			actions = append(actions, actionsForThisService...)
+			*actions = append(*actions, actionsForThisService...)
 		}
 
 		//Add actions for loadbalancer (e.g. deploy the loadbalancer)
 		if project.Loadbalancer != nil {
 			actionsForThisService := addActionsForService(client, client.state.Node, project.Loadbalancer.Service, client.state.Containers, project)
-			actions = append(actions, actionsForThisService...)
+			*actions = append(*actions, actionsForThisService...)
 		}
 
 		//Add actions for network config for loadbalancer (e.g. a container changed port, a new container has been deployed)
 		if project.Loadbalancer != nil {
 			actionsForThisService := addLoadbalancerActions(client, client.state.Node, client.state.NetworkConfiguration, client.state.Containers, project.Services, *project.Loadbalancer.Service)
-			actions = append(actions, actionsForThisService...)
+			*actions = append(*actions, actionsForThisService...)
+		}
+
+		//TODO: Seems inefficient to loop the projects for these jobs just to separate between different type of jobs.
+		//Add actions for cicd jobs (e.g. build new image for container, update i-hate-kubernetes)
+		for _, cicdJob := range client.state.CicdJobs {
+			if project.Autoupdate != nil && cicdJob.Id == project.Autoupdate.Id {
+				*actions = append(*actions, model_actions.CreateCicdUpdateIHateKubernetes(
+					&client.state.Node,
+					&cicdJob,
+				))
+			} else {
+				*actions = append(*actions, model_actions.CreateCicdJob(
+					&client.state.Node,
+					&cicdJob,
+					cicdJob.Service,
+					&project,
+				))
+			}
 		}
 	}
-
-	return actions
+	client.state.CicdJobs = make([]models.Cicd, 0)
 }
 
 func addLoadbalancerActions(

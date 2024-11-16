@@ -10,6 +10,7 @@ import (
 )
 
 type CheckReadinesProbe struct {
+	DefaultActionMetadata
 	Node      *models.Node
 	Probe     *models.Probe
 	Service   *models.Service
@@ -31,20 +32,19 @@ func CreateReadinessProbe(node *models.Node, service *models.Service, container 
 	}
 }
 
-func (action *CheckReadinesProbe) Run() error {
+func (action *CheckReadinesProbe) Run() (ActionRunResult, error) {
 	result := probes.ProbeHttpGetMethod(action.Service, action.Container, *action.Probe)
 	if result {
 		action.Result = result
 	}
 
-	return nil
-	//return err
+	return ActionRunResult{IsDone: true}, nil
 }
 
-func (action *CheckReadinesProbe) Update(clientState *clientState.ClientState) error {
+func (action *CheckReadinesProbe) Update(actions *[]Action, clientState *clientState.ClientState) (ActionUpdateResult, error) {
 	clientState.ContainerMetadata[action.Container.Id].ProbesMetadata.Readiness.LastCheck = time.Now().Unix()
 	clientState.ContainerMetadata[action.Container.Id].ProbesMetadata.Readiness.ResultOfLastCheck = action.Result
-	return nil
+	return ActionUpdateResult{IsDone: true}, nil
 }
 
 func (action *CheckReadinesProbe) Equals(otherAction Action) bool {

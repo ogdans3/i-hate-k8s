@@ -24,7 +24,7 @@ func ReadFile(file string) models.Project {
 		// TODO: Handle the error properly, inspect the yaml file and give proper errors
 		console.Error("error: %v", err2)
 	}
-	project.InsertDefaults()
+	project.InsertDefaults(filepath.Dir(file))
 
 	cleanPath := filepath.Clean(file)
 	firstDir, _ := filepath.Split(cleanPath)

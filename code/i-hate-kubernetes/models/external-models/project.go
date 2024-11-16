@@ -11,12 +11,14 @@ type Project struct {
 	Analytics    bool
 	Loadbalancer bool
 	Cicd         bool
+	Autoupdate   bool
 
 	Settings Settings
 	Services map[string]*Service `yaml:",inline"`
 }
 
-func (project *Project) InsertDefaults() {
+func (project *Project) InsertDefaults(directory string) {
+	project.Pwd = directory
 	for serviceName, service := range project.Services {
 		service.InsertDefaults(serviceName)
 	}

@@ -17,6 +17,7 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/archive"
 	"github.com/docker/go-connections/nat"
+	engine_models "github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/client/engine-interface/engine-models"
 	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/console"
 	models "github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/models/internal-models"
 	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/models/util"
@@ -71,6 +72,51 @@ func StopAllContainers() {
 		}()
 	}
 	wg.Wait()
+}
+
+func StopContainer(timeout int, ctr engine_models.Container) error {
+	apiClient := createDockerClient()
+	defer apiClient.Close()
+	ctx := context.Background()
+
+	err := apiClient.ContainerStop(ctx, ctr.Id, container.StopOptions{
+		Timeout: &timeout,
+	})
+	if err != nil {
+		console.Error("Failed to stop container: %s, %s", ctr.Id, err)
+		return err
+		//TODO: Send error back
+	}
+	return nil
+}
+
+func StopAndRemoveContainer(ctr engine_models.Container) error {
+	apiClient := createDockerClient()
+	defer apiClient.Close()
+	ctx := context.Background()
+
+	err := StopContainer(10, ctr)
+	if err != nil {
+		return err
+	}
+
+	err = apiClient.ContainerRemove(ctx, ctr.Id, container.RemoveOptions{
+		RemoveLinks:   false, //TODO: If this is true, then i get this error: Error response from daemon: Conflict, cannot remove the default link name of the container
+		RemoveVolumes: true,  //TODO: Check if persistent volume?
+		Force:         true,  //TODO: Should probably not force the first time
+	})
+	if err != nil {
+		fmt.Println(err)
+		console.Error("Failed to remove container, volumes, or links: %s, %s", ctr.Id, err)
+		return err
+		//TODO: Handle error?
+	}
+
+	//TODO: Remove container
+	//TODO: Remove volumes
+	//TODO: Remove solo networks
+	//TODO: Remove images
+	return nil
 }
 
 func StopAndRemoveAllContainersAndNetworks() {

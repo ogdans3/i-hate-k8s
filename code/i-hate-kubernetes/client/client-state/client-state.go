@@ -28,4 +28,9 @@ type ClientState struct {
 	NetworkConfiguration   models.LoadbalancerNetworkConfiguration
 	EngineNetworkToService map[string][]models.Service
 	ContainerMetadata      map[string]ContainerMetadata
+	CicdJobs               []models.Cicd //Cicd jobs that are queued and waiting to be ran
+}
+
+type ClientSettings struct {
+	ApiPort string
 }

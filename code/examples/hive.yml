@@ -1,6 +1,7 @@
 project: docker-helloworld-http
 
 logging: true
+autoupdate: true
 loadbalancer: true
 cicd: true
 
@@ -11,8 +12,9 @@ webserver:
     https: true
     ports:
         - "80"
+    cicd:
+        - url: git@github.com:user/example-repo.git
+          branch: master
     autoscale:
         initial: 2
         autoscale: true
-
-
