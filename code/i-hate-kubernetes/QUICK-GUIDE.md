@@ -19,6 +19,9 @@ i-have-a-service:
     domain: none
     path: none
     public: false #Should be exposed to the internet, even though no domain or path is listed (You must specify a host port)
+    cicd:
+        url: "https://github.com/user/example-repo.git" #Git url to compare webhook events to
+        branch: "master" #Git branch to use when building
     autoscale:
         initial: 1
         autoscale: true
