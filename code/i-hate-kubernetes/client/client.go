@@ -326,18 +326,6 @@ func addLoadbalancerActions(
 		return actions
 	}
 
-	console.InfoLog.Debug(
-		newConfig.ConfigurationToNginxFile() == currentLoadbalancerNetworkConfiguration.ConfigurationToNginxFile(),
-	)
-	console.InfoLog.Debug("First")
-	console.InfoLog.Debug(
-		newConfig.ConfigurationToNginxFile(),
-	)
-	console.InfoLog.Debug("Second")
-	console.InfoLog.Debug(
-		currentLoadbalancerNetworkConfiguration.ConfigurationToNginxFile(),
-	)
-	console.InfoLog.Debug(newConfig.ConfigurationToNginxFile())
 	actions = append(actions, &model_actions.UpdateLoadbalancer{
 		Node:                 &node,
 		Container:            loadBalancerContainer,
