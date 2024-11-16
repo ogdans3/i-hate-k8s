@@ -7,6 +7,7 @@ logging: true #We handle logging for you if this is turned on
 analytics: false #We are going to make our own analytics, think posthog with good defaults for EU privacy laws
 dashboard: true #A UI dashboard where you can deploy services, nodes, stop pods, add new projects, look at cpu, mem, etc, etc
 registry: false #If true, then we will deploy a docker registry for you. No reason for you to pay for a docker registry license for internal images
+autoupdate: false #If true, then we will automatically pull the newest code from the repository of i-hate-kubernetes and build a new version and start it
 build-system: false #If true, then we will deploy a build system. Something like jenkins, github actions, or something similar. TBD.
 
 i-have-a-service:
