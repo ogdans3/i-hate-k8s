@@ -281,6 +281,8 @@ func addLoadbalancerActions(
 	}
 	sort.Strings(keys)
 
+	serverBlocks := make([]models.Server, 0)
+	upstreamBlocks := make([]models.Upstream, 0)
 	for _, key := range keys {
 		service := services[key]
 		upstreamBlock := models.Upstream{
@@ -288,34 +290,38 @@ func addLoadbalancerActions(
 			Servers: []models.UpstreamServer{},
 		}
 		serverBlock := models.Server{
-			Location: []models.ServerLocation{},
+			Location:   []models.ServerLocation{},
+			ServerName: service.Domain,
 		}
-		//TODO: Loop over path/domain for the service and insert into the location block
-		serverBlock.Location = append(serverBlock.Location, models.ServerLocation{
-			MatchModifier: "",
-			LocationMatch: "/",
-			ProxyPass:     upstreamBlock.Name,
-		})
-
+		for _, path := range service.Path {
+			//TODO: Loop over path/domain for the service and insert into the location block
+			serverBlock.Location = append(serverBlock.Location, models.ServerLocation{
+				MatchModifier: "",
+				LocationMatch: path,
+				ProxyPass:     upstreamBlock.Name,
+			})
+		}
 		for _, container := range containers {
 			for _, name := range container.Names {
 				if strings.Contains(name, service.Id) {
-					if container.Ip != nil {
-						upstreamBlock.Servers = append(upstreamBlock.Servers, models.UpstreamServer{
-							Server: *container.GetIp(),
-						})
+					//TODO: Handle multiple ports better? Allow the user to select the port atleast
+					for _, port := range service.Ports {
+						if container.Ip != nil {
+							upstreamBlock.Servers = append(upstreamBlock.Servers, models.UpstreamServer{
+								Server: *container.GetIp(),
+								Port:   port.ContainerPort,
+							})
+						}
 					}
 				}
 			}
 		}
-		newConfig.HttpBlocks = append(newConfig.HttpBlocks, models.Http{
-			Upstream: []models.Upstream{
-				upstreamBlock,
-			},
-			Server: []models.Server{
-				serverBlock,
-			},
-		})
+		serverBlocks = append(serverBlocks, serverBlock)
+		upstreamBlocks = append(upstreamBlocks, upstreamBlock)
+	}
+	newConfig.HttpBlock = models.Http{
+		Upstream: upstreamBlocks,
+		Server:   serverBlocks,
 	}
 	//TODO: Check properly instead of the string values. Make the order not matter
 	if newConfig.ConfigurationToNginxFile() == currentLoadbalancerNetworkConfiguration.ConfigurationToNginxFile() &&

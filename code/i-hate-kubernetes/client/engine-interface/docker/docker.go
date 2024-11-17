@@ -189,7 +189,6 @@ func BuildService(service models.Service, project models.Project) {
 	tw := tar.NewWriter(&buf)
 	defer tw.Close()
 
-	console.Log(service.Directory)
 	tarContext, err := archive.Tar(filepath.Join(service.Directory), 0)
 	if err != nil {
 		console.InfoLog.Fatal("Error creating tar context: ", err)
@@ -204,7 +203,7 @@ func BuildService(service models.Service, project models.Project) {
 	}
 
 	response, err := apiClient.ImageBuild(ctx, tarContext, types.ImageBuildOptions{
-		Dockerfile: "Dockerfile",
+		Dockerfile: service.Dockerfile,
 		Remove:     true,
 		Tags:       []string{imageName},
 		PullParent: true,

@@ -1,6 +1,7 @@
 package console
 
 import (
+	"bytes"
 	"io"
 	"os"
 	"sync"
@@ -181,12 +182,12 @@ func (logger *Logger) Write(level LogLevel, logString []byte) *Logger {
 }
 
 func (logger *Logger) LogCopy(level LogLevel, reader io.Reader) *Logger {
+	var buf bytes.Buffer
+	tee := io.TeeReader(reader, &buf)
 	for _, dst := range logger.destinations {
+		replayReader := io.MultiReader(&buf, tee)
 		if ShouldLog(level, dst.minimumLogLevel) {
-			io.Copy(os.Stdout, reader)
-		} else {
-			//TODO: Wtf, images are not pulled without doing this?
-			io.Copy(io.Discard, reader)
+			io.Copy(os.Stdout, replayReader)
 		}
 	}
 	return logger

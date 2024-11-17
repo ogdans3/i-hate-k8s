@@ -19,6 +19,8 @@ type Service struct {
 	Watch         string //No idea?
 	ContainerName string //The name for this container, will appear in docker ps
 	FullName      string //The name for this container, will appear in docker ps
+	Domain        []string
+	Path          []string
 
 	Www       bool      //Should requests be redirected from example.com to www.example.com
 	Https     bool      //Should https be used
@@ -35,7 +37,7 @@ func ParseService(service *external_models.Service, project Project) *Service {
 		Id:            projectId + "-" + service.ServiceName,
 		ServiceId:     service.Id,
 		Directory:     filepath.Join(project.Pwd, service.Directory),
-		Dockerfile:    "Dockerfile", //TODO: Dont hardcode
+		Dockerfile:    service.Dockerfile,
 		ServiceName:   service.ServiceName,
 		Image:         service.Image,
 		Build:         service.Build,
@@ -43,6 +45,8 @@ func ParseService(service *external_models.Service, project Project) *Service {
 		Watch:         service.Watch,
 		ContainerName: service.ContainerName,
 		FullName:      service.FullName,
+		Domain:        service.Domain,
+		Path:          service.Path,
 
 		Www:       service.Www,
 		Https:     service.Https,

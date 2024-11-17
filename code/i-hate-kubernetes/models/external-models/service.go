@@ -17,6 +17,9 @@ type Service struct {
 	Image         string
 	Build         bool   //True if we should build this service using docker build. cicd must also be true
 	Directory     string //Relative directory to the project to use for docker contexts, also used to default cicd directory if not specified in cicd section
+	Dockerfile    string //Dockerfile, relative to the specified Directory
+	Domain        []string
+	Path          []string
 	Dev           string
 	Watch         string
 	ContainerName string `yaml:"container_name"`
@@ -40,6 +43,13 @@ func (service *Service) InsertDefaults(serviceName string) {
 	service.Id = util.RandStringBytesMaskImpr(5)
 	if service.Cicd != nil {
 		service.Cicd.InsertDefaults()
+	}
+	if len(service.Path) == 0 {
+		service.Path = []string{"/"}
+	}
+	service.Domain = append(service.Domain, "localhost", "127.0.0.1")
+	if service.Dockerfile == "" {
+		service.Dockerfile = "Dockerfile"
 	}
 }
 
