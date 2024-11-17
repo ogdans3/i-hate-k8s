@@ -33,7 +33,7 @@ func CreateLoggingDirectory() string {
 
 var InfoLog = NewLog().
 	AddFile("log.log", &LogDestination{maximumLogLevel: ERROR}).
-	AddStd().
+	AddStd(&LogDestination{minimumLogLevel: DEBUG, flags: 0}).
 	AddFile("error.log", &LogDestination{minimumLogLevel: ERROR})
 
 var StatLog = NewLog().

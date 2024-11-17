@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"path/filepath"
 	"sync"
 
@@ -39,7 +38,7 @@ func ListAllContainers() ([]types.Container, error) {
 	containers, err := apiClient.ContainerList(context.Background(), container.ListOptions{All: true})
 	if err != nil {
 		//TODO: Try a few times before erroring?
-		console.Error("Unable to list containers", err)
+		console.InfoLog.Error("Unable to list containers", err)
 		return nil, err
 	}
 
@@ -66,7 +65,7 @@ func StopAllContainers() {
 				Timeout: &timeout,
 			})
 			if err != nil {
-				console.Error("Failed to stop container: %s, %s", ctr.ID, err)
+				console.InfoLog.Error("Failed to stop container: %s, %s", ctr.ID, err)
 				//TODO: Send error back
 			}
 		}()
@@ -83,7 +82,7 @@ func StopContainer(timeout int, ctr engine_models.Container) error {
 		Timeout: &timeout,
 	})
 	if err != nil {
-		console.Error("Failed to stop container: %s, %s", ctr.Id, err)
+		console.InfoLog.Error("Failed to stop container: %s, %s", ctr.Id, err)
 		return err
 		//TODO: Send error back
 	}
@@ -107,7 +106,7 @@ func StopAndRemoveContainer(ctr engine_models.Container) error {
 	})
 	if err != nil {
 		fmt.Println(err)
-		console.Error("Failed to remove container, volumes, or links: %s, %s", ctr.Id, err)
+		console.InfoLog.Error("Failed to remove container, volumes, or links: %s, %s", ctr.Id, err)
 		return err
 		//TODO: Handle error?
 	}
@@ -143,7 +142,7 @@ func StopAndRemoveAllContainersAndNetworks() {
 			})
 			if err != nil {
 				fmt.Println(err)
-				console.Error("Failed to remove container, volumes, or links: %s, %s", ctr.ID, err)
+				console.InfoLog.Error("Failed to remove container, volumes, or links: %s, %s", ctr.ID, err)
 				//TODO: Handle error?
 			}
 		}()
@@ -158,7 +157,7 @@ func StopAndRemoveAllContainersAndNetworks() {
 			err = apiClient.NetworkRemove(ctx, n.ID)
 			if err != nil {
 				fmt.Println(err)
-				console.Error("Failed to remove network: %s, %s", n.ID, err)
+				console.InfoLog.Error("Failed to remove network: %s, %s", n.ID, err)
 				//TODO: Handle error?
 			}
 		}()
@@ -173,7 +172,7 @@ func StopAndRemoveAllContainersAndNetworks() {
 			_, err := apiClient.ImageRemove(ctx, i.ID, image.RemoveOptions{})
 			if err != nil {
 				fmt.Println(err)
-				console.Error("Failed to remove network: %s, %s", i.ID, err)
+				console.InfoLog.Error("Failed to remove network: %s, %s", i.ID, err)
 				//TODO: Handle error?
 			}
 		}()
@@ -190,9 +189,10 @@ func BuildService(service models.Service, project models.Project) {
 	tw := tar.NewWriter(&buf)
 	defer tw.Close()
 
+	console.Log(service.Directory)
 	tarContext, err := archive.Tar(filepath.Join(service.Directory), 0)
 	if err != nil {
-		log.Fatalf("Error creating tar context: %v", err)
+		console.InfoLog.Fatal("Error creating tar context: ", err)
 	}
 
 	imageName := service.Image
@@ -210,23 +210,24 @@ func BuildService(service models.Service, project models.Project) {
 		PullParent: true,
 	})
 	if err != nil {
-		fmt.Println(err)
-		console.Fatal(err)
+		console.InfoLog.Error(err)
+		return
 	}
+	console.InfoLog.Info("Image built: ", imageTag)
 	defer response.Body.Close()
-	console.Copy(response.Body)
+	console.InfoLog.Copy(response.Body)
 
 	imagePushResponse, err := apiClient.ImagePush(ctx, imageTag, image.PushOptions{
 		All:          true,
 		RegistryAuth: "TODO2", //TODO: The registry auth must be there, but the value does not matter
 	})
 	if err != nil {
-		fmt.Println(err)
-		console.Fatal(err)
+		console.InfoLog.Error(err)
+		return
 	}
 	defer imagePushResponse.Close()
-	console.Copy(imagePushResponse)
-	console.Log("Image built and pushed")
+	console.InfoLog.Copy(imagePushResponse)
+	console.InfoLog.Info("Image pushed: ", imageTag)
 }
 
 func CreateContainerFromService(service models.Service, project *models.Project) (*string, error) {
@@ -236,7 +237,6 @@ func CreateContainerFromService(service models.Service, project *models.Project)
 
 	imageName := service.Image
 
-	fmt.Println(project)
 	if service.Build && project.Registry != nil {
 		//TODO: Get this from the actual registry service or container?
 		imageName = "localhost:5000/" + imageName
@@ -244,17 +244,17 @@ func CreateContainerFromService(service models.Service, project *models.Project)
 		imageName = "docker.io/library/" + imageName
 	}
 
-	console.Log("Image name: ", imageName)
+	console.InfoLog.Log("Pull image name: ", imageName)
 	reader, err := apiClient.ImagePull(ctx, imageName, image.PullOptions{
 		All:          false,   //Very specifically set to false! If this is true we start pulling every image in the world
 		RegistryAuth: "TODO2", //TODO: The registry auth must be there, but the value does not matter
 	})
 	if err != nil {
-		fmt.Println(err)
+		console.InfoLog.Error(err)
 		return nil, err
 	}
 	defer reader.Close()
-	console.Copy(reader)
+	console.InfoLog.Copy(reader)
 
 	networkName := service.Network.GetName()
 	var networkConfig *network.NetworkingConfig
@@ -278,9 +278,10 @@ func CreateContainerFromService(service models.Service, project *models.Project)
 		nil,
 		service.Id+"-"+service.ContainerName+"-"+util.RandStringBytesMaskImpr(5),
 	)
+	console.InfoLog.Info("Container created: ", createdContainer.ID)
 
 	if err != nil {
-		fmt.Println(err)
+		console.InfoLog.Error(err)
 		return nil, err
 	}
 
@@ -295,9 +296,10 @@ func StartContainer(containerId string) error {
 	ctx := context.Background()
 
 	if err := apiClient.ContainerStart(ctx, containerId, container.StartOptions{}); err != nil {
-		console.Error("Unable to start container")
+		console.InfoLog.Error("Unable to start container")
 		return err
 	}
+	console.InfoLog.Info("Container started: ", containerId)
 	return nil
 }
 
@@ -314,7 +316,7 @@ func CreateNetwork(n models.Network) (*string, error) {
 		Driver: "bridge", //TODO isnt this wrong. Shouldnt these networks be isolated from the internet?
 	})
 	if err != nil {
-		console.Error("Unable to create network")
+		console.InfoLog.Error("Unable to create network")
 		return nil, err
 	}
 
@@ -328,7 +330,7 @@ func ListNetworks() ([]network.Inspect, error) {
 
 	response, err := apiClient.NetworkList(ctx, network.ListOptions{})
 	if err != nil {
-		console.Error("Unable to list networks")
+		console.InfoLog.Error("Unable to list networks")
 		return nil, err
 	}
 

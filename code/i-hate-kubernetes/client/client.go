@@ -154,7 +154,7 @@ func (client *Client) MoveTowardsDesiredState() {
 			actionRunResult, err := action.Run()
 			if err != nil {
 				action.GetMetadata().Retries++
-				console.Log(err)
+				console.InfoLog.Error(err)
 				//Add it back to the queue, so that we can retry it later
 				remainingActions = append(remainingActions, action)
 				return
@@ -230,8 +230,6 @@ func (client *Client) CalculateActions(actions *[]model_actions.Action) {
 		//TODO: Seems inefficient to loop the projects for these jobs just to separate between different type of jobs.
 		//Add actions for cicd jobs (e.g. build new image for container, update i-hate-kubernetes)
 		for _, cicdJob := range client.state.CicdJobs {
-			console.Log(project.Autoupdate)
-			console.Log(cicdJob.Id, project.Autoupdate.Id)
 			if project.Autoupdate != nil && cicdJob.Id == project.Autoupdate.Id {
 				*actions = append(*actions, model_actions.CreateCicdUpdateIHateKubernetes(
 					&client.state.Node,
@@ -481,7 +479,7 @@ func (client *Client) Update() {
 	networkSummaries, err := docker.ListNetworks()
 	if err != nil {
 		//TODO: Handle error
-		console.Log(err)
+		console.InfoLog.Error(err)
 		return
 	}
 

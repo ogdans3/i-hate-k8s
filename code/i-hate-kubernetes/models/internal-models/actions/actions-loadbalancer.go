@@ -27,7 +27,7 @@ func (action *DeployNewNode) CreateNetwork(clientState *clientState.ClientState)
 }
 
 func (action *CreateNetwork) Run() (ActionRunResult, error) {
-	console.Log("Create network")
+	console.InfoLog.Log("Create network")
 	networkId, err := docker.CreateNetwork(*action.Service.Network)
 	action.NetworkId = networkId
 	return ActionRunResult{IsDone: true}, err
@@ -39,7 +39,7 @@ func (action *CreateNetwork) Update(actions *[]Action, clientState *clientState.
 		return ActionUpdateResult{IsDone: true}, nil
 	}
 	//TODO: Do we need to retain the network id?
-	console.Log("Network created: ", action.NetworkId)
+	console.InfoLog.Log("Network created: ", action.NetworkId)
 	if clientState.EngineNetworkToService[*action.Service.Network.GetName()] == nil {
 		clientState.EngineNetworkToService[*action.Service.Network.GetName()] = make([]models.Service, 0)
 	}
@@ -59,7 +59,7 @@ func (action *CreateNetwork) Equals(otherAction Action) bool {
 }
 
 func (action *UpdateLoadbalancer) Run() (ActionRunResult, error) {
-	console.Log("Update loadbalancer", action.Container.Id)
+	console.InfoLog.Log("Update loadbalancer", action.Container.Id)
 	err := docker.AddNewNginxConfigurationToContainer(action.NetworkConfiguration.ConfigurationToNginxFile(), *action.Container)
 	return ActionRunResult{IsDone: true}, err
 }

@@ -10,7 +10,7 @@ type DeployNewNode struct {
 }
 
 func (action *DeployNewNode) Run() (ActionRunResult, error) {
-	console.Log("Deploy new node", action)
+	console.InfoLog.Log("Deploy new node", action)
 	return ActionRunResult{IsDone: true}, nil
 }
 

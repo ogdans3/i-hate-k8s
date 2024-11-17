@@ -4,6 +4,7 @@ import (
 	"io"
 	"os"
 	"sync"
+	"time"
 )
 
 type LogFlag int
@@ -49,7 +50,7 @@ func StdLog() *Logger {
 			{
 				output: os.Stdout,
 				format: TEXT,
-				flags:  Ldate | Ltime,
+				flags:  0,
 			},
 		},
 	}
@@ -102,13 +103,28 @@ func (log *Logger) AddFile(path string, logDestination *LogDestination) *Logger 
 	return log.AddDestination(&destination)
 }
 
-func (log *Logger) AddStd() *Logger {
-	return log.AddDestination(&LogDestination{
+func (log *Logger) AddStd(logDestination *LogDestination) *Logger {
+	destination := LogDestination{
 		output:          os.Stdout,
 		format:          TEXT,
 		flags:           Ldate | Ltime,
-		minimumLogLevel: DEBUG,
-	})
+		minimumLogLevel: INFO,
+	}
+	if logDestination != nil {
+		if logDestination.format != 0 {
+			destination.format = logDestination.format
+		}
+		if logDestination.flags != 0 {
+			destination.flags = logDestination.flags
+		}
+		if logDestination.minimumLogLevel != 0 {
+			destination.minimumLogLevel = logDestination.minimumLogLevel
+		}
+		if logDestination.maximumLogLevel != 0 {
+			destination.maximumLogLevel = logDestination.maximumLogLevel
+		}
+	}
+	return log.AddDestination(&destination)
 }
 
 func (dst *LogDestination) SetFlags(flags LogFlag) *LogDestination {
@@ -129,8 +145,32 @@ func (dst *LogDestination) Write(logString []byte) *LogDestination {
 func (logger *Logger) Write(level LogLevel, logString []byte) *Logger {
 	for _, dst := range logger.destinations {
 		if ShouldLog(level, dst.minimumLogLevel) && MaximumLogLevel(level, dst.maximumLogLevel) {
+			buf := make([]byte, 0)
+			flag := dst.flags
+			t := time.Now() // get this early.
+			if flag&(Ltime|Ldate) != 0 {
+				if flag&Ldate != 0 {
+					year, month, day := t.Date()
+					itoa(&buf, year, 4)
+					buf = append(buf, '/')
+					itoa(&buf, int(month), 2)
+					buf = append(buf, '/')
+					itoa(&buf, day, 2)
+					buf = append(buf, ' ')
+				}
+				if flag&(Ltime) != 0 {
+					hour, min, sec := t.Clock()
+					itoa(&buf, hour, 2)
+					buf = append(buf, ':')
+					itoa(&buf, min, 2)
+					buf = append(buf, ':')
+					itoa(&buf, sec, 2)
+					buf = append(buf, ' ')
+				}
+			}
+			buf = append(buf, logString...)
 			dst.outMutex.Lock()
-			_, err := dst.output.Write(logString)
+			_, err := dst.output.Write(buf)
 			dst.outMutex.Unlock()
 			if err != nil {
 				panic(err)
@@ -158,4 +198,21 @@ func SetLogLevel(level LogLevel) {
 	for _, dst := range defaultLogger.destinations {
 		dst.minimumLogLevel = level
 	}
+}
+
+// Cheap integer to fixed-width decimal ASCII. Give a negative width to avoid zero-padding.
+func itoa(buf *[]byte, i int, wid int) {
+	// Assemble decimal in reverse order.
+	var b [20]byte
+	bp := len(b) - 1
+	for i >= 10 || wid > 1 {
+		wid--
+		q := i / 10
+		b[bp] = byte('0' + i - q*10)
+		bp--
+		i = q
+	}
+	// i < 10
+	b[bp] = byte('0' + i)
+	*buf = append(*buf, b[bp:]...)
 }

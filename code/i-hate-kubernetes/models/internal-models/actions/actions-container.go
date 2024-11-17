@@ -78,22 +78,23 @@ func CreateRestartContainer(container *engine_models.Container, node *models.Nod
 }
 
 func (action *DeployContainerForService) Run() (ActionRunResult, error) {
-	console.Log("Deploy container", action.Service.Id)
+	console.InfoLog.Log("Deploy container", action.Service.Id)
 	if action.Service.Build {
 		docker.BuildService(*action.Service, *action.Project)
 	}
+	console.InfoLog.Info("Create container")
 	_, err := docker.CreateContainerFromService(*action.Service, action.Project)
 	return ActionRunResult{IsDone: true}, err
 }
 
 func (action *RestartContainer) Run() (ActionRunResult, error) {
-	console.Log("Restart container", action.Container.Id)
+	console.InfoLog.Log("Restart container", action.Container.Id)
 	docker.StartContainer(action.Container.Id)
 	return ActionRunResult{IsDone: true}, nil
 }
 
 func (action *RemoveContainer) Run() (ActionRunResult, error) {
-	console.Log("Remove container", action.Container.Id)
+	console.InfoLog.Log("Remove container", action.Container.Id)
 	err := docker.StopAndRemoveContainer(*action.Container)
 	if err != nil {
 		return ActionRunResult{IsDone: false}, err

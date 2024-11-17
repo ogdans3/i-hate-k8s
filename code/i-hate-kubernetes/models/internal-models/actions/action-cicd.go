@@ -36,7 +36,7 @@ func CreateCicdJob(node *models.Node, cicd *models.Cicd, service *models.Service
 }
 
 func (action *CicdUpdateImage) Run() (ActionRunResult, error) {
-	console.Log("Run cicd update image job: ", action.Cicd)
+	console.InfoLog.Log("Run cicd update image job: ", action.Cicd)
 	cmd := exec.Command("git", "pull", "origin", "master")
 	cmd.Dir = action.Cicd.Directory
 
@@ -74,8 +74,8 @@ func CreateCicdUpdateIHateKubernetes(node *models.Node, cicd *models.Cicd) *Cicd
 
 // TODO: Handle errors properly
 func (action *CicdUpdateIHateKubernetes) Run() (ActionRunResult, error) {
-	console.Log("Update main program: ", action.Cicd)
-	console.Log("Run cicd update i-hate-kubernetes job: ", action.Cicd)
+	console.InfoLog.Log("Update main program: ", action.Cicd)
+	console.InfoLog.Log("Run cicd update i-hate-kubernetes job: ", action.Cicd)
 	cmd := exec.Command("git", "pull", "origin", "master")
 	cmd.Dir = action.Cicd.Directory
 

@@ -13,7 +13,7 @@ import (
 func ReadFile(file string) models.Project {
 	data, err := os.ReadFile(file)
 	if err != nil {
-		console.Error("error: %v", err)
+		console.InfoLog.Error("error: %v", err)
 		panic("Unable to read file ")
 	}
 
@@ -22,7 +22,7 @@ func ReadFile(file string) models.Project {
 	err2 := yaml.Unmarshal([]byte(data), &project)
 	if err2 != nil {
 		// TODO: Handle the error properly, inspect the yaml file and give proper errors
-		console.Error("error: %v", err2)
+		console.InfoLog.Error("error: %v", err2)
 	}
 	project.InsertDefaults(filepath.Dir(file))
 
