@@ -9,6 +9,7 @@ dashboard: true #A UI dashboard where you can deploy services, nodes, stop pods,
 registry: false #If true, then we will deploy a docker registry for you. No reason for you to pay for a docker registry license for internal images
 autoupdate: false #If true, then we will automatically pull the newest code from the repository of i-hate-kubernetes and build a new version and start it
 build-system: false #If true, then we will deploy a build system. Something like jenkins, github actions, or something similar. TBD.
+cicd: false #If true, then we will do cicd things
 
 i-have-a-service:
     image: i-h-k/webpage
