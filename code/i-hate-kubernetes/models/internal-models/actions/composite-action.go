@@ -5,14 +5,45 @@ import (
 	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/console"
 )
 
-type CompositeAction struct {
-	DefaultActionMetadata
+type CompositeActionState int
+
+const (
+	Action_stage CompositeActionState = iota
+	Finally_stage
+)
+
+type ActionBloc struct {
 	Actions                   []Action
 	indexOfNextActionToRun    uint8
 	indexOfNextActionToUpdate *uint8
 }
 
+type CompositeAction struct {
+	DefaultActionMetadata
+	Actions *ActionBloc
+	Finally *ActionBloc
+	State   CompositeActionState
+}
+
 func (a *CompositeAction) Run() (ActionRunResult, error) {
+	if a.State == Action_stage {
+		return RunActionBlock(a.Actions)
+	} else if a.State == Finally_stage {
+		return RunActionBlock(a.Finally)
+	}
+	panic("Eieieiei")
+}
+
+func (a *CompositeAction) Update(actions *[]Action, clientState *clientState.ClientState) (ActionUpdateResult, error) {
+	if a.State == Action_stage {
+		return UpdateActionBlock(a.Actions, actions, clientState)
+	} else if a.State == Finally_stage {
+		return UpdateActionBlock(a.Finally, actions, clientState)
+	}
+	panic("Eieieiei")
+}
+
+func RunActionBlock(a *ActionBloc) (ActionRunResult, error) {
 	if len(a.Actions) <= int(a.indexOfNextActionToRun) {
 		return ActionRunResult{IsDone: true}, nil
 	}
@@ -36,7 +67,7 @@ func (a *CompositeAction) Run() (ActionRunResult, error) {
 	return ActionRunResult{IsDone: true}, nil
 }
 
-func (a *CompositeAction) Update(actions *[]Action, clientState *clientState.ClientState) (ActionUpdateResult, error) {
+func UpdateActionBlock(a *ActionBloc, actions *[]Action, clientState *clientState.ClientState) (ActionUpdateResult, error) {
 	if a.indexOfNextActionToUpdate == nil {
 		//No actions have run yet, so we do not update the state
 		return ActionUpdateResult{IsDone: false}, nil
@@ -49,9 +80,10 @@ func (a *CompositeAction) Update(actions *[]Action, clientState *clientState.Cli
 		return ActionUpdateResult{IsDone: false}, err
 	}
 	if result.IsDone {
-		a.indexOfNextActionToRun++
+		var value uint8 = *a.indexOfNextActionToUpdate + 1
+		a.indexOfNextActionToUpdate = &value
 	}
-	if len(a.Actions) < int(a.indexOfNextActionToRun) {
+	if len(a.Actions) < int(*a.indexOfNextActionToUpdate) {
 		return ActionUpdateResult{IsDone: false}, nil
 	}
 	return ActionUpdateResult{IsDone: true}, nil

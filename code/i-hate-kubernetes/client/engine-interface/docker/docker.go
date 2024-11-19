@@ -96,6 +96,7 @@ func StopAndRemoveContainer(ctr engine_models.Container) error {
 
 	err := StopContainer(10, ctr)
 	if err != nil {
+		console.Log("Failed to stop container: ", err)
 		return err
 	}
 
@@ -209,7 +210,7 @@ func BuildService(service models.Service, project models.Project) {
 		PullParent: true,
 	})
 	if err != nil {
-		console.InfoLog.Error(err)
+		console.InfoLog.Error("Failed to build image: ", err)
 		return
 	}
 	console.InfoLog.Info("Image built: ", imageTag)
@@ -221,7 +222,7 @@ func BuildService(service models.Service, project models.Project) {
 		RegistryAuth: "TODO2", //TODO: The registry auth must be there, but the value does not matter
 	})
 	if err != nil {
-		console.InfoLog.Error(err)
+		console.InfoLog.Error("Failed to push image: ", err)
 		return
 	}
 	defer imagePushResponse.Close()
@@ -348,4 +349,36 @@ func portToPortBinding(ports []models.Port) map[nat.Port][]nat.PortBinding {
 		}
 	}
 	return portMap
+}
+
+func SendCommandToContainer(cmd []string, containerID string) (int, error) {
+	apiClient := createDockerClient()
+	defer apiClient.Close()
+	ctx := context.Background()
+
+	execConfig := container.ExecOptions{
+		Cmd:          cmd,
+		AttachStdout: true,
+		AttachStderr: true,
+	}
+
+	// Create an exec instance for the reload command
+	execID, err := apiClient.ContainerExecCreate(ctx, containerID, execConfig)
+	if err != nil {
+		return -1, err
+	}
+
+	// Attach to the exec instance to run the command
+	response, err := apiClient.ContainerExecAttach(ctx, execID.ID, container.ExecStartOptions{})
+	if err != nil {
+		return -1, err
+	}
+	defer response.Close()
+	console.InfoLog.Copy(response.Reader)
+
+	inspect, err := apiClient.ContainerExecInspect(ctx, execID.ID)
+	if err != nil {
+		return -1, err
+	}
+	return inspect.ExitCode, err
 }

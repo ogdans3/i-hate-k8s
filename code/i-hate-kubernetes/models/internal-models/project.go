@@ -1,11 +1,17 @@
 package models
 
-import external_models "github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/models/external-models"
+import (
+	"os"
+
+	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/console"
+	external_models "github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/models/external-models"
+)
 
 type Project struct {
-	Project string //An identifier for this project used for grouping pods
-	Engine  string //Which container engine to use, e.g. docker, podman, etc
-	Pwd     string
+	Project          string //An identifier for this project used for grouping pods
+	Engine           string //Which container engine to use, e.g. docker, podman, etc
+	Pwd              string
+	ProgramDirectory string
 
 	Logging      bool          //Enable logging
 	Dashboard    bool          //Enable dashboard
@@ -15,15 +21,21 @@ type Project struct {
 	Autoupdate   *Cicd         //Autoupdate i-hate-kubernetes whenever something is pushed to master branch (branch to be updated to latest at one point)
 	Cicd         []Cicd        //If true then we spin up a CICD (continous integration, continious deployment) pipeline
 
-	Settings Settings            //Settings?
-	Services map[string]*Service `yaml:",inline"` //A list of the services to deploy
+	Settings           Settings            //Settings?
+	Services           map[string]*Service `yaml:",inline"` //A list of the services to deploy
+	CertificateHandler *CertificateHandler //TODO: Comment
 }
 
 func ParseProject(project external_models.Project, pwd string) Project {
+	programDirectory, err := os.Getwd()
+	if err != nil {
+		console.InfoLog.Panic("Unable to find program directory")
+	}
 	p := Project{
-		Project: project.Project,
-		Engine:  project.Engine,
-		Pwd:     pwd, //TODO: Insert from the external project if it is there
+		Project:          project.Project,
+		Engine:           project.Engine,
+		Pwd:              pwd,              //TODO: Insert from the external project if it is there
+		ProgramDirectory: programDirectory, //TODO: Insert from the external project if it is there
 
 		Logging:    project.Logging,
 		Dashboard:  project.Dashboard,
@@ -36,7 +48,7 @@ func ParseProject(project external_models.Project, pwd string) Project {
 	p.Registry = ParseRegistry(project.Registry, p)
 	p.Loadbalancer = ParseLoadBalancer(project.Loadbalancer, p)
 	p.Cicd = ParseCicds(p.Services, project.Services, p.Pwd)
-
+	p.CertificateHandler = ParseCertificateBlocks(p, p.Services)
 	return p
 }
 

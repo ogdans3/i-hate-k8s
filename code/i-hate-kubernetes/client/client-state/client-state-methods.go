@@ -18,3 +18,12 @@ func (cs *ClientState) GetContainersForService(service *models.Service) []engine
 	}
 	return containers
 }
+
+func (cs *ClientState) GetContainerFromContainerId(containerId string) *engine_models.Container {
+	for _, ctr := range cs.Containers {
+		if ctr.Id == containerId {
+			return &ctr
+		}
+	}
+	return nil
+}

@@ -33,6 +33,8 @@ type Channels struct {
 	webhookChannel chan webhooks.WebhookPayload
 }
 
+var certificateJobCreated bool = false
+
 func CreateClient() Client {
 	console.Clear()
 	client := Client{
@@ -142,7 +144,7 @@ func (client *Client) MoveTowardsDesiredState() {
 	var mu sync.Mutex //TODO Will using a mutex here make it too slow?
 	for _, action := range client.actions {
 		//This action has failed too many times
-		if action.GetMetadata().Retries > 2 {
+		if action.GetMetadata().GetRetries() > 2 {
 			//Add it back to the queue, so that we dont create this action again
 			//TODO: Oooof though, memory leak is gonna happen here
 			remainingActions = append(remainingActions, action)
@@ -153,7 +155,7 @@ func (client *Client) MoveTowardsDesiredState() {
 			defer wg.Done()
 			actionRunResult, err := action.Run()
 			if err != nil {
-				action.GetMetadata().Retries++
+				action.GetMetadata().IncreaseRetries()
 				console.InfoLog.Error(err)
 				//Add it back to the queue, so that we can retry it later
 				remainingActions = append(remainingActions, action)
@@ -161,8 +163,18 @@ func (client *Client) MoveTowardsDesiredState() {
 			}
 
 			mu.Lock()
-			if actionRunResult.IsDone {
-				action.Update(&remainingActions, &client.state)
+			if actionRunResult.IsDone || actionRunResult.NeedsUpdate {
+				actionUpdateResult, err := action.Update(&remainingActions, &client.state)
+				if err != nil {
+					action.GetMetadata().IncreaseRetries()
+					console.InfoLog.Error(err)
+					//Add it back to the queue, so that we can retry it later
+					remainingActions = append(remainingActions, action)
+				}
+
+				if !actionUpdateResult.IsDone {
+					remainingActions = append(remainingActions, action)
+				}
 			} else {
 				remainingActions = append(remainingActions, action)
 			}
@@ -243,6 +255,16 @@ func (client *Client) CalculateActions(actions *[]model_actions.Action) {
 					&project,
 				))
 			}
+		}
+
+		//Add actions for certificates
+		if project.CertificateHandler != nil && !certificateJobCreated {
+			*actions = append(*actions, model_actions.CreateCertificateMasterJob(
+				&client.state.Node,
+				project.CertificateHandler,
+				&project,
+			))
+			certificateJobCreated = true
 		}
 	}
 	client.state.CicdJobs = make([]models.Cicd, 0)
@@ -433,6 +455,10 @@ func (client *Client) Update() {
 		}
 		if project != nil {
 			for _, name := range ctr.Names {
+				if project.CertificateHandler != nil && strings.Contains(name, project.CertificateHandler.ServiceJob.Service.Id) {
+					service = project.CertificateHandler.ServiceJob.Service
+					break
+				}
 				if strings.Contains(name, project.Loadbalancer.Service.Id) {
 					service = project.Loadbalancer.Service
 					break

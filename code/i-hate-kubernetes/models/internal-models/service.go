@@ -29,6 +29,9 @@ type Service struct {
 
 	Network *Network
 	Probes  *Probes
+
+	Job  bool
+	Cron string
 }
 
 func ParseService(service *external_models.Service, project Project) *Service {
@@ -53,6 +56,9 @@ func ParseService(service *external_models.Service, project Project) *Service {
 		Ports:     ParsePorts(service.Ports),
 		Autoscale: ParseAutoscale(service.Autoscale),
 		Probes:    ParseProbes(service.Probes),
+
+		Job:  service.Job,
+		Cron: service.Cron,
 
 		Network: &Network{
 			Name: projectId,

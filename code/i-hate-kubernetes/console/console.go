@@ -3,6 +3,7 @@ package console
 import (
 	"fmt"
 	"io"
+	"os"
 )
 
 const (
@@ -108,6 +109,11 @@ func Fatal(arguments ...any) {
 	defaultLogger.Fatal(arguments...)
 }
 
+func Panic(arguments ...any) {
+	lastPrintWasASpinner = false
+	defaultLogger.Panic(arguments...)
+}
+
 func (log *Logger) Clear() {
 	log.Write(INFO, []byte(clearConsole))
 }
@@ -137,6 +143,11 @@ func (log *Logger) Error(arguments ...any) {
 }
 
 func (log *Logger) Fatal(arguments ...any) {
+	log.common(ERROR, commonArguments{Types: false}, arguments...)
+	os.Exit(1)
+}
+
+func (log *Logger) Panic(arguments ...any) {
 	log.common(ERROR, commonArguments{Types: false}, arguments...)
 	panic("Fatal")
 }

@@ -8,8 +8,13 @@ import (
 	models "github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/models/internal-models"
 )
 
-type DeployContainerForService struct {
+type ContainerMetadata struct {
 	DefaultActionMetadata
+	ContainerId *string
+}
+
+type DeployContainerForService struct {
+	ContainerMetadata
 	Node    *models.Node
 	Service *models.Service
 	Project *models.Project
@@ -57,7 +62,7 @@ func CreateContainerImageUpdated(clientState *clientState.ClientState, node *mod
 	// If we dont do a second pass, we could risk that the scheduler deploys more containers with the old image while we remove the old ones
 	return &ContainerImageUpdated{
 		CompositeAction{
-			Actions: actions,
+			Actions: &ActionBloc{Actions: actions},
 		},
 	}
 }
@@ -83,7 +88,8 @@ func (action *DeployContainerForService) Run() (ActionRunResult, error) {
 		docker.BuildService(*action.Service, *action.Project)
 	}
 	console.InfoLog.Info("Create container")
-	_, err := docker.CreateContainerFromService(*action.Service, action.Project)
+	ctrId, err := docker.CreateContainerFromService(*action.Service, action.Project)
+	action.ContainerId = ctrId
 	return ActionRunResult{IsDone: true}, err
 }
 

@@ -31,6 +31,9 @@ type Service struct {
 	Autoscale Autoscale
 	Probes    *Probes
 	Cicd      *Cicd
+
+	Job  bool
+	Cron string
 }
 
 func (service *Service) InsertDefaults(serviceName string) {
