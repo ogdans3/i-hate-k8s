@@ -124,7 +124,7 @@ func (action *CertificateMasterJob) Update(actions *[]Action, clientState *clien
 				&WaitForTlsCertificate{CertificationBlock: &certificateBlock, Container: ctr},
 			)
 		}
-		action.Finally.Actions = append(action.Finally.Actions) //&RemoveContainer{Node: action.deployAction.Node, Container: ctr},
+		action.Finally.Actions = append(action.Finally.Actions, &RemoveContainer{Node: action.deployAction.Node, Container: ctr})
 
 		action.state = container_deployed
 		return ActionUpdateResult{IsDone: false}, nil
