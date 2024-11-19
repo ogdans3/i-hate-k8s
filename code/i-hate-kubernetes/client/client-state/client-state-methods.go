@@ -38,3 +38,12 @@ func (cs *ClientState) GetContainerFromContainerId(containerId string) *engine_m
 	}
 	return nil
 }
+
+func (cs *ClientState) GetVolumeFromName(volumeName string) *engine_models.Volume {
+	for _, vol := range cs.Volumes {
+		if vol.Name == volumeName {
+			return &vol
+		}
+	}
+	return nil
+}

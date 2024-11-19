@@ -18,6 +18,7 @@ import (
 	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/console"
 	models "github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/models/internal-models"
 	model_actions "github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/models/internal-models/actions"
+	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/models/util"
 )
 
 type Client struct {
@@ -202,6 +203,22 @@ func (client *Client) CalculateActions(actions *[]model_actions.Action) {
 				*actions = append(*actions, &model_actions.CreateNetwork{
 					Node:    &client.state.Node,
 					Service: service,
+				})
+			}
+		}
+
+		//Add actions to create volumes
+		for _, service := range project.GetAllServices() {
+			for _, volume := range service.Volume {
+				storedVol := client.state.GetVolumeFromName(volume.Name)
+				//console.Log("Volume: ", volume, storedVol)
+				if storedVol != nil {
+					continue
+				}
+				*actions = append(*actions, &model_actions.CreateVolume{
+					Id:     util.RandStringBytesMaskImpr(5),
+					Node:   &client.state.Node,
+					Volume: volume,
 				})
 			}
 		}
@@ -456,6 +473,19 @@ func (client *Client) Update() {
 		client.state.Networks = append(client.state.Networks, engine_models.Network{
 			Id:   networkSummary.ID,
 			Name: networkSummary.Name,
+		})
+	}
+
+	volumes, err := docker.ListVolumes()
+	if err != nil {
+		//TODO: Handle error
+		console.InfoLog.Error(err)
+		return
+	}
+	for _, vol := range volumes {
+		client.state.Volumes = append(client.state.Volumes, engine_models.Volume{
+			Name:   vol.Name,
+			Labels: vol.Labels,
 		})
 	}
 }

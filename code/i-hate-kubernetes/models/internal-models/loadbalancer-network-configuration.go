@@ -44,7 +44,13 @@ type ServerLocation struct {
 	ProxyPass     string
 }
 
+type SSL struct {
+	Fullchain  string
+	Privatekey string
+}
+
 type Server struct {
+	SSL        *SSL
 	Location   []ServerLocation
 	ServerName []string
 }
@@ -79,10 +85,15 @@ func (configuration *LoadbalancerNetworkConfiguration) ConfigurationToNginxFile(
 		}
 		builder.WriteString(tab + "}" + lineEnding)
 	}
-	builder.WriteString(tab + "server {" + lineEnding)
-	//TODO: Fix this listen statement
-	builder.WriteString(tab + tab + "listen 80;" + lineEnding)
 	for _, serverBlock := range configuration.HttpBlock.Server {
+		builder.WriteString(tab + "server {" + lineEnding)
+		//TODO: Fix this listen statement to use the actual port specified by the user
+		builder.WriteString(tab + tab + "listen 80;" + lineEnding)
+
+		if serverBlock.SSL != nil {
+			builder.WriteString(tab + tab + "ssl_certificate " + serverBlock.SSL.Fullchain + ";" + lineEnding)
+			builder.WriteString(tab + tab + "ssl_certificate_key " + serverBlock.SSL.Fullchain + ";" + lineEnding)
+		}
 		if len(serverBlock.ServerName) != 0 {
 			builder.WriteString(tab + tab + "server_name ")
 		}
@@ -99,8 +110,8 @@ func (configuration *LoadbalancerNetworkConfiguration) ConfigurationToNginxFile(
 			builder.WriteString(tab + tab + tab + "proxy_pass http://" + locationBlock.ProxyPass + ";" + lineEnding)
 			builder.WriteString(tab + tab + "}" + lineEnding)
 		}
+		builder.WriteString(tab + "}" + lineEnding)
 	}
-	builder.WriteString(tab + "}" + lineEnding)
 	builder.WriteString("}" + lineEnding)
 	return builder.String()
 }

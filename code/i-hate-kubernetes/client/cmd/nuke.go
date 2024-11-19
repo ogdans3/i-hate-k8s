@@ -1,8 +1,9 @@
 package cmd
 
 import (
-	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/client"
+	"os/exec"
 
+	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/console"
 	"github.com/spf13/cobra"
 )
 
@@ -33,7 +34,50 @@ func init() {
 	// stopCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
 
-func runNuke(cmd *cobra.Command, args []string) {
-	c := client.CreateClient()
-	c.Nuke()
+func runNuke(c *cobra.Command, args []string) {
+
+	stop()
+	rm()
+	rmVols()
+	prune()
+
+	//c := client.CreateClient()
+	//c.Nuke()
+}
+
+func stop() {
+	cmd := exec.Command("bash", "-c", "docker stop $(docker ps -q)")
+	if err := cmd.Run(); err != nil {
+		console.InfoLog.Fatal("Error stopping containers: %v", err)
+	} else {
+		console.InfoLog.Info("All running containers stopped successfully.")
+	}
+}
+
+func rm() {
+	cmd := exec.Command("bash", "-c", "docker rm -f $(docker ps -a -q)")
+	if err := cmd.Run(); err != nil {
+		console.InfoLog.Fatal("Error removing containers: %v", err)
+	} else {
+		console.InfoLog.Info("All stopped containers removed successfully.")
+	}
+}
+
+func prune() {
+	cmd := exec.Command("bash", "-c", "docker system prune -f --volumes")
+
+	if err := cmd.Run(); err != nil {
+		console.InfoLog.Fatal("Error running prune: %v", err)
+	}
+
+	console.InfoLog.Info("Docker system prune completed successfully.")
+}
+
+func rmVols() {
+	removeVolumesCmd := exec.Command("bash", "-c", "docker volume rm $(docker volume ls -q)")
+	if err := removeVolumesCmd.Run(); err != nil {
+		console.InfoLog.Fatal("Error deleting volumes: %v", err)
+	} else {
+		console.InfoLog.Info("All Docker volumes deleted successfully.")
+	}
 }

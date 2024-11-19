@@ -23,6 +23,7 @@ type ContainerMetadata struct {
 type ClientState struct {
 	Containers             []engine_models.Container
 	Networks               []engine_models.Network
+	Volumes                []engine_models.Volume
 	Projects               []models.Project
 	Node                   models.Node
 	NetworkConfiguration   models.LoadbalancerNetworkConfiguration

@@ -12,7 +12,9 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
+	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/api/types/network"
+	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/archive"
 	"github.com/docker/go-connections/nat"
@@ -266,6 +268,16 @@ func CreateContainerFromService(service models.Service, project *models.Project)
 		}
 	}
 
+	mounts := make([]mount.Mount, 0)
+	for _, vol := range service.Volume {
+		mounts = append(mounts, mount.Mount{
+			Type:     mount.TypeVolume,
+			Source:   vol.Name,
+			Target:   vol.Target,
+			ReadOnly: vol.Readonly,
+		})
+	}
+
 	createdContainer, err := apiClient.ContainerCreate(
 		ctx,
 		&container.Config{
@@ -273,6 +285,7 @@ func CreateContainerFromService(service models.Service, project *models.Project)
 		},
 		&container.HostConfig{
 			PortBindings: portToPortBinding(service.Ports),
+			Mounts:       mounts,
 		},
 		networkConfig,
 		nil,
@@ -381,4 +394,39 @@ func SendCommandToContainer(cmd []string, containerID string) (int, error) {
 		return -1, err
 	}
 	return inspect.ExitCode, err
+}
+
+func CreateVolume(name string) (*volume.Volume, error) {
+	apiClient := createDockerClient()
+	defer apiClient.Close()
+	ctx := context.Background()
+
+	vol, err := apiClient.VolumeCreate(ctx, volume.CreateOptions{
+		Driver: "local",
+		Name:   name,
+		Labels: map[string]string{
+			"hive": "hive",
+		},
+	})
+	if err != nil {
+		console.InfoLog.Error("Failed to create volume: ", err)
+		return nil, err
+	}
+
+	console.InfoLog.Info("Volume created: ", vol.Name)
+	return &vol, nil
+}
+
+func ListVolumes() ([]*volume.Volume, error) {
+	apiClient := createDockerClient()
+	defer apiClient.Close()
+	ctx := context.Background()
+
+	vol, err := apiClient.VolumeList(ctx, volume.ListOptions{})
+	if err != nil {
+		console.InfoLog.Error("Failed to list volumes: ", err)
+		return nil, err
+	}
+	//TODO: Do we need the warnings?
+	return vol.Volumes, nil
 }

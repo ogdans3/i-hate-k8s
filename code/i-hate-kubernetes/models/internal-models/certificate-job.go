@@ -2,6 +2,7 @@ package models
 
 import (
 	"path/filepath"
+	"strings"
 
 	external_models "github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/models/external-models"
 )
@@ -29,6 +30,12 @@ func ParseCertificateJob(project Project) *CertificateJob {
 			Path:       []string{"/.well-known/acme-challenge/"},
 			Build:      true,
 			Dockerfile: "Dockerfile",
+			Volume: []*external_models.Volume{
+				{
+					Name:   strings.Join([]string{"hive", project.Project, "certs"}, "-"),
+					Target: "/etc/letsencrypt/live",
+				},
+			},
 		}, project),
 	}
 	job.Service.Directory = filepath.Join(project.ProgramDirectory, "../services/tls/") //TODO: This is a hack until we start to upload these images to repo

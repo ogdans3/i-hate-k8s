@@ -25,6 +25,7 @@ type Service struct {
 	Watch         string
 	ContainerName string `yaml:"container_name"`
 	FullName      string `yaml:"full_name"`
+	Volume        []*Volume
 
 	Www       bool
 	Https     bool

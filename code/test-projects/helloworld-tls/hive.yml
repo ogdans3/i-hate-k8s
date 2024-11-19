@@ -1,0 +1,18 @@
+project: docker-helloworld-http-tls
+
+logging: true
+loadbalancer: true
+
+webserver:
+    image: ogdans3/helloworld-http:latest
+    www: true
+    https: true
+    domain:
+        - beta.econgym.com
+    email:
+        - gabrielbhansen@hotmail.com
+    ports:
+        - "80"
+    autoscale:
+        initial: 1
+        autoscale: false

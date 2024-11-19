@@ -22,6 +22,7 @@ type Service struct {
 	Domain        []string
 	Email         []string
 	Path          []string
+	Volume        []*Volume
 
 	Www       bool      //Should requests be redirected from example.com to www.example.com
 	Https     bool      //Should https be used
@@ -58,6 +59,7 @@ func ParseService(service *external_models.Service, project Project) *Service {
 		Ports:     ParsePorts(service.Ports),
 		Autoscale: ParseAutoscale(service.Autoscale),
 		Probes:    ParseProbes(service.Probes),
+		Volume:    ParseVolumes(service.Volume),
 
 		Job:  service.Job,
 		Cron: service.Cron,

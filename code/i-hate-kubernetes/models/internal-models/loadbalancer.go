@@ -1,6 +1,10 @@
 package models
 
-import external_models "github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/models/external-models"
+import (
+	"strings"
+
+	external_models "github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/models/external-models"
+)
 
 type EngineType uint8
 
@@ -29,6 +33,13 @@ func ParseLoadBalancer(loadbalancer bool, project Project) *LoadBalancer {
 			},
 			Https: true,
 			Www:   true,
+			Volume: []*external_models.Volume{
+				{
+					Name:     strings.Join([]string{"hive", project.Project, "certs"}, "-"),
+					Target:   "/etc/letsencrypt/live",
+					Readonly: true,
+				},
+			},
 		}, project),
 	}
 }

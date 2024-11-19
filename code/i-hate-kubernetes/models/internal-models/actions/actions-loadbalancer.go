@@ -42,6 +42,15 @@ func CreateLoadbalancerAction(node *models.Node, loadBalancerContainer *engine_m
 			Location:   []models.ServerLocation{},
 			ServerName: service.Domain,
 		}
+		if service.Https {
+			//TODO: Handle multiple domains
+			//TODO: Handle both example.com and www.example.com, can be in the same server block because they are the same domain (use the same cert?)
+			d := service.Domain[0]
+			serverBlock.SSL = &models.SSL{
+				Fullchain:  strings.Join([]string{"/etc/letsencrypt/live", d, "fullchain.pem"}, "/"),
+				Privatekey: strings.Join([]string{"/etc/letsencrypt/live", d, "privkey.pem"}, "/"),
+			}
+		}
 		for _, path := range service.Path {
 			//TODO: Loop over path/domain for the service and insert into the location block
 			serverBlock.Location = append(serverBlock.Location, models.ServerLocation{

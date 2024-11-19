@@ -78,3 +78,21 @@ func (project *Project) GetId() *string {
 
 	return &project.Project
 }
+
+func (project *Project) GetAllServices() []*Service {
+	services := make([]*Service, 0)
+	if project.Loadbalancer != nil {
+		services = append(services, project.Loadbalancer.Service)
+	}
+	if project.Registry != nil {
+		services = append(services, project.Registry.Service)
+	}
+	if project.CertificateHandler != nil && project.CertificateHandler.ServiceJob != nil {
+		services = append(services, project.CertificateHandler.ServiceJob.Service)
+	}
+
+	for _, service := range project.Services {
+		services = append(services, service)
+	}
+	return services
+}

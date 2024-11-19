@@ -17,11 +17,17 @@ type Container struct {
 	Node models.Node
 }
 
+func (container *Container) GetIp() *string {
+	return container.Ip
+}
+
 type Network struct {
 	Id   string
 	Name string
 }
 
-func (container *Container) GetIp() *string {
-	return container.Ip
+type Volume struct {
+	Id     string
+	Name   string
+	Labels map[string]string
 }
