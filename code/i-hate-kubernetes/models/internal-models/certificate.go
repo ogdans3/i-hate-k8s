@@ -30,7 +30,7 @@ func ParseCertificateBlock(project Project, service *Service) *CertificateBlock 
 	//TODO: Add command or type of certificate or service, only certbot for now
 	return &CertificateBlock{
 		Domains:              removeElements(service.Domain, "localhost", "127.0.0.1"),
-		Emails:               nil,
+		Emails:               service.Email,
 		CertificationService: CERT_BOT,
 	}
 }

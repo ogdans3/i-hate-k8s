@@ -20,6 +20,7 @@ type Service struct {
 	ContainerName string //The name for this container, will appear in docker ps
 	FullName      string //The name for this container, will appear in docker ps
 	Domain        []string
+	Email         []string
 	Path          []string
 
 	Www       bool      //Should requests be redirected from example.com to www.example.com
@@ -49,6 +50,7 @@ func ParseService(service *external_models.Service, project Project) *Service {
 		ContainerName: service.ContainerName,
 		FullName:      service.FullName,
 		Domain:        service.Domain,
+		Email:         service.Email,
 		Path:          service.Path,
 
 		Www:       service.Www,

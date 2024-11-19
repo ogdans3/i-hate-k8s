@@ -19,6 +19,7 @@ type Service struct {
 	Directory     string //Relative directory to the project to use for docker contexts, also used to default cicd directory if not specified in cicd section
 	Dockerfile    string //Dockerfile, relative to the specified Directory
 	Domain        []string
+	Email         []string
 	Path          []string
 	Dev           string
 	Watch         string
