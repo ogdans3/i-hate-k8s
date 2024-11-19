@@ -91,7 +91,9 @@ func (configuration *LoadbalancerNetworkConfiguration) ConfigurationToNginxFile(
 				builder.WriteString(serverName + " ")
 			}
 		}
-		builder.WriteString(" ;" + lineEnding)
+		if len(serverBlock.ServerName) != 0 {
+			builder.WriteString(" ;" + lineEnding)
+		}
 		for _, locationBlock := range serverBlock.Location {
 			builder.WriteString(tab + tab + "location " + locationBlock.MatchModifier + " " + locationBlock.LocationMatch + " {" + lineEnding)
 			builder.WriteString(tab + tab + tab + "proxy_pass http://" + locationBlock.ProxyPass + ";" + lineEnding)
