@@ -83,7 +83,9 @@ func (configuration *LoadbalancerNetworkConfiguration) ConfigurationToNginxFile(
 	//TODO: Fix this listen statement
 	builder.WriteString(tab + tab + "listen 80;" + lineEnding)
 	for _, serverBlock := range configuration.HttpBlock.Server {
-		builder.WriteString(tab + tab + "server_name ")
+		if len(serverBlock.ServerName) != 0 {
+			builder.WriteString(tab + tab + "server_name ")
+		}
 		for _, serverName := range serverBlock.ServerName {
 			if serverName != "" {
 				builder.WriteString(serverName + " ")

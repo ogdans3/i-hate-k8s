@@ -25,6 +25,8 @@ func ParseCertificateJob(project Project) *CertificateJob {
 				Liveness: "/live",
 			},
 
+			//Example path:  http://example.com/.well-known/acme-challenge/r5m61LmshQeBOcOZMkwjDRmgvUZ2mBNWXR8n9Qd_ZME:
+			Path:       []string{"/.well-known/acme-challenge/"},
 			Build:      true,
 			Dockerfile: "Dockerfile",
 		}, project),

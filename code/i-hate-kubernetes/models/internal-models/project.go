@@ -2,6 +2,7 @@ package models
 
 import (
 	"os"
+	"sort"
 
 	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/console"
 	external_models "github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/models/external-models"
@@ -50,6 +51,24 @@ func ParseProject(project external_models.Project, pwd string) Project {
 	p.Cicd = ParseCicds(p.Services, project.Services, p.Pwd)
 	p.CertificateHandler = ParseCertificateBlocks(p, p.Services)
 	return p
+}
+
+func (project *Project) GetLoadbalancedServices() []*Service {
+	keys := make([]string, 0, len(project.Services))
+	for key := range project.Services {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	services := make([]*Service, 0)
+	if project.CertificateHandler != nil && project.CertificateHandler.ServiceJob != nil && project.CertificateHandler.ServiceJob.Service != nil {
+		services = append(services, project.CertificateHandler.ServiceJob.Service)
+	}
+	for _, key := range keys {
+		service := project.Services[key]
+		services = append(services, service)
+	}
+	return services
 }
 
 func (project *Project) GetId() *string {

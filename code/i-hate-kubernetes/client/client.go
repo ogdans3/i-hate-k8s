@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math"
 	"os"
-	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -235,7 +234,7 @@ func (client *Client) CalculateActions(actions *[]model_actions.Action) {
 
 		//Add actions for network config for loadbalancer (e.g. a container changed port, a new container has been deployed)
 		if project.Loadbalancer != nil {
-			actionsForThisService := addLoadbalancerActions(client, client.state.Node, client.state.NetworkConfiguration, client.state.Containers, project.Services, *project.Loadbalancer.Service)
+			actionsForThisService := addLoadbalancerActions(client, client.state.Node, client.state.NetworkConfiguration, client.state.Containers, &project, *project.Loadbalancer.Service)
 			*actions = append(*actions, actionsForThisService...)
 		}
 
@@ -275,90 +274,27 @@ func addLoadbalancerActions(
 	node models.Node,
 	currentLoadbalancerNetworkConfiguration models.LoadbalancerNetworkConfiguration,
 	containers []engine_models.Container,
-	services map[string]*models.Service,
+	project *models.Project,
 	loadBalancerService models.Service,
 ) []model_actions.Action {
 	actions := make([]model_actions.Action, 0)
 
-	var loadBalancerContainer *engine_models.Container = nil
-	for _, container := range containers {
-		for _, name := range container.Names {
-			if strings.Contains(name, loadBalancerService.Id) && container.State == "running" {
-				loadBalancerContainer = &container
-			}
-		}
-	}
+	loadBalancerContainer := client.state.GetSingleContainerForService(&loadBalancerService)
 	//The loadbalancer container is not yet available, so we return here
 	if loadBalancerContainer == nil {
 		return actions
 	}
 
-	newConfig := models.LoadbalancerNetworkConfiguration{
-		ContainerIdOfLoadbalancerThatHasThisConfig: &loadBalancerContainer.Id,
-	}
+	action := model_actions.CreateLoadbalancerAction(&node, loadBalancerContainer, project, containers)
 
-	keys := make([]string, 0, len(services))
-	for key := range services {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-
-	serverBlocks := make([]models.Server, 0)
-	upstreamBlocks := make([]models.Upstream, 0)
-	for _, key := range keys {
-		service := services[key]
-		upstreamBlock := models.Upstream{
-			Name:    service.ServiceName,
-			Servers: []models.UpstreamServer{},
-		}
-		serverBlock := models.Server{
-			Location:   []models.ServerLocation{},
-			ServerName: service.Domain,
-		}
-		for _, path := range service.Path {
-			//TODO: Loop over path/domain for the service and insert into the location block
-			serverBlock.Location = append(serverBlock.Location, models.ServerLocation{
-				MatchModifier: "",
-				LocationMatch: path,
-				ProxyPass:     upstreamBlock.Name,
-			})
-		}
-		for _, container := range containers {
-			for _, name := range container.Names {
-				if strings.Contains(name, service.Id) {
-					//TODO: Handle multiple ports better? Allow the user to select the port atleast
-					for _, port := range service.Ports {
-						if container.Ip != nil {
-							upstreamBlock.Servers = append(upstreamBlock.Servers, models.UpstreamServer{
-								Server: *container.GetIp(),
-								Port:   port.ContainerPort,
-							})
-						}
-					}
-				}
-			}
-		}
-		serverBlocks = append(serverBlocks, serverBlock)
-		upstreamBlocks = append(upstreamBlocks, upstreamBlock)
-	}
-	newConfig.HttpBlock = models.Http{
-		Upstream: upstreamBlocks,
-		Server:   serverBlocks,
-	}
 	//TODO: Check properly instead of the string values. Make the order not matter
-	if newConfig.ConfigurationToNginxFile() == currentLoadbalancerNetworkConfiguration.ConfigurationToNginxFile() &&
+	if action.NetworkConfiguration.ConfigurationToNginxFile() == currentLoadbalancerNetworkConfiguration.ConfigurationToNginxFile() &&
 		currentLoadbalancerNetworkConfiguration.ContainerIdOfLoadbalancerThatHasThisConfig != nil &&
 		*currentLoadbalancerNetworkConfiguration.ContainerIdOfLoadbalancerThatHasThisConfig == loadBalancerContainer.Id {
 		return actions
 	}
 
-	actions = append(actions, &model_actions.UpdateLoadbalancer{
-		Node:                 &node,
-		Container:            loadBalancerContainer,
-		NetworkConfiguration: &newConfig,
-	})
-
-	return actions
+	return append(actions, action)
 }
 
 func isRegistryAvailable(client *Client, node models.Node, service *models.Service, containers []engine_models.Container) bool {

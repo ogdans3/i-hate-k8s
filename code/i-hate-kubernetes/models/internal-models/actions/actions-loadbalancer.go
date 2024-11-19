@@ -1,6 +1,8 @@
 package model_actions
 
 import (
+	"strings"
+
 	clientState "github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/client/client-state"
 	"github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/client/engine-interface/docker"
 	engine_models "github.com/ogdans3/i-hate-kubernetes/code/i-hate-kubernetes/client/engine-interface/engine-models"
@@ -20,6 +22,63 @@ type CreateNetwork struct {
 	Node      *models.Node    //Which node to create the network on
 	Service   *models.Service //Which service is connected to this network
 	NetworkId *string         //Returned from the engine daemon after the network has been created
+}
+
+func CreateLoadbalancerAction(node *models.Node, loadBalancerContainer *engine_models.Container, project *models.Project, containers []engine_models.Container) *UpdateLoadbalancer {
+	newConfig := models.LoadbalancerNetworkConfiguration{
+		ContainerIdOfLoadbalancerThatHasThisConfig: &loadBalancerContainer.Id,
+	}
+
+	services := project.GetLoadbalancedServices()
+
+	serverBlocks := make([]models.Server, 0)
+	upstreamBlocks := make([]models.Upstream, 0)
+	for _, service := range services {
+		upstreamBlock := models.Upstream{
+			Name:    service.ServiceName,
+			Servers: []models.UpstreamServer{},
+		}
+		serverBlock := models.Server{
+			Location:   []models.ServerLocation{},
+			ServerName: service.Domain,
+		}
+		for _, path := range service.Path {
+			//TODO: Loop over path/domain for the service and insert into the location block
+			serverBlock.Location = append(serverBlock.Location, models.ServerLocation{
+				MatchModifier: "",
+				LocationMatch: path,
+				ProxyPass:     upstreamBlock.Name,
+			})
+		}
+		for _, container := range containers {
+			for _, name := range container.Names {
+				if strings.Contains(name, service.Id) {
+					//TODO: Handle multiple ports better? Allow the user to select the port atleast
+					for _, port := range service.Ports {
+						if container.Ip != nil {
+							upstreamBlock.Servers = append(upstreamBlock.Servers, models.UpstreamServer{
+								Server: *container.GetIp(),
+								Port:   port.ContainerPort,
+							})
+						}
+					}
+				}
+			}
+		}
+		serverBlocks = append(serverBlocks, serverBlock)
+		upstreamBlocks = append(upstreamBlocks, upstreamBlock)
+	}
+	newConfig.HttpBlock = models.Http{
+		Upstream: upstreamBlocks,
+		Server:   serverBlocks,
+	}
+
+	return &UpdateLoadbalancer{
+		Node:                 node,
+		Container:            loadBalancerContainer,
+		NetworkConfiguration: &newConfig,
+	}
+
 }
 
 func (action *DeployNewNode) CreateNetwork(clientState *clientState.ClientState) error {

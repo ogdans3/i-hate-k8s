@@ -96,12 +96,23 @@ func (action *CertificateMasterJob) Update(actions *[]Action, clientState *clien
 		}
 
 		ctr := clientState.GetContainerFromContainerId(*action.deployAction.ContainerId)
-		//No container yet found, wait for the discovery to discover this container
+		loadbalancerContainer := clientState.GetSingleContainerForService(action.deployAction.Project.Loadbalancer.Service)
+		//No tls container yet found, wait for the discovery to discover this container
 		if ctr == nil || ctr.GetIp() == nil {
+			return ActionUpdateResult{IsDone: false}, nil
+		}
+		//No loadbalancer container yet found, wait for the discovery to discover this container
+		if loadbalancerContainer == nil {
 			return ActionUpdateResult{IsDone: false}, nil
 		}
 		for _, certificateBlock := range action.handler.Blocks {
 			action.Actions.Actions = append(action.Actions.Actions,
+				CreateLoadbalancerAction(
+					action.deployAction.Node,
+					loadbalancerContainer, //TOOD: This must be the loadbalancer container
+					action.deployAction.Project,
+					clientState.Containers,
+				),
 				&CheckReadinessProbe{
 					MustSucceed: true,
 					Node:        action.deployAction.Node,
@@ -113,9 +124,8 @@ func (action *CertificateMasterJob) Update(actions *[]Action, clientState *clien
 				&WaitForTlsCertificate{CertificationBlock: &certificateBlock, Container: ctr},
 			)
 		}
-		action.Finally.Actions = append(action.Finally.Actions,
-			&RemoveContainer{Node: action.deployAction.Node, Container: ctr},
-		)
+		action.Finally.Actions = append(action.Finally.Actions) //&RemoveContainer{Node: action.deployAction.Node, Container: ctr},
+
 		action.state = container_deployed
 		return ActionUpdateResult{IsDone: false}, nil
 	}
@@ -133,7 +143,6 @@ func (action *CertificateMasterJob) Equals(otherAction Action) bool {
 
 func (action *IssueTlsCertificate) Run() (ActionRunResult, error) {
 	console.InfoLog.Log("Issue Tls Certificate", action)
-	console.Log(action.CertificationBlock.Domains)
 
 	commandList := []string{
 		"certbot",
