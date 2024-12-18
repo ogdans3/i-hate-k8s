@@ -45,6 +45,12 @@ func runNuke(c *cobra.Command, args []string) {
 	//c.Nuke()
 }
 
+jeg har en fisk i lommen min
+
+
+
+'
+
 func stop() {
 	cmd := exec.Command("bash", "-c", "docker stop $(docker ps -q)")
 	if err := cmd.Run(); err != nil {
